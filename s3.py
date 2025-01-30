@@ -1,8 +1,5 @@
 import json
-import random
-from datetime import datetime
-import pytz
-import logging
+import shutil
 import os
 from sql_helper import create_row, create_db_connection, delete_row_two_ids, update_row_dos_id, name_to_id
 from sqlalchemy import text
@@ -141,66 +138,6 @@ class s3_bucket:
         else:
             return True
 
-class s3_object:
-    def __init__(self,
-                properties=['uri', 'arn', 'version', 'etag', 'object_url', 'owner', 'last_modified', 'size', 'type', 'storage_class', 'tags'],
-                uri='', 
-                arn='',
-                version=0, 
-                etag='', 
-                object_url='', 
-                owner='', 
-                last_modified='', 
-                size='', 
-                type='', 
-                storatge_class='standard',
-                tags=''):
-        self.properties = properties
-        self.uri = uri
-        self.arn = arn
-        self.version = version
-        self.etag = etag
-        self.object_url = object_url
-        self.owner = owner
-        self.last_modified = last_modified
-        self.size = size
-        self.type = type
-        self.storage_class = storatge_class
-        self.tags = tags.split(',')
-        
-    def get_object_properties(self, attr):
-        if attr == 'uri':
-            return self.uri
-        if attr == 'arn':
-            return self.arn
-        if attr == 'version':
-            return self.version
-        if attr == 'etag':
-            return self.etag
-        if attr == 'object_url':
-            return self.object_url
-        if attr == 'owner':
-            return self.owner
-        if attr == 'last_modified':
-            return self.last_modified
-        if attr == 'size':
-            return self.size
-        if attr == 'type':
-            return self.type
-        if attr == 'storage_class':
-            return self.storage_class
-        if attr == 'tags':
-            return self.tags
-
-    @staticmethod
-    def validate_value(value, object_attr):
-        if object_attr == 'storage_class':
-            if value not in ['standard']:
-                print('ERROR! VALUE IS NOT VALID!')
-                return False
-            else:
-                return True
-
 def set_vv_abap(bucket, _attr):
     bucket.set_bucket_properties(_attr)
     while bucket.validate_value(bucket.get_bucket_properties(_attr), _attr) != True:
@@ -262,66 +199,58 @@ def create_s3_directory(_username, bucket):
     bucket_sub_path = f"AWS/users/{_username}/s3/{bucket.name}"
     os.makedirs(bucket_sub_path, exist_ok=True)
 
-def version_bucket(bucket):
-    if bucket.bucket_versioning:
-        return 1 # will build in versioning logic later
-    else:
-        return 0
+def sel_bucket(_username, bucket_name, transfer_func):
+    try:
+        user_id = name_to_id('user_credentials', 'user_id', 'username', _username)
+        bucket_id = name_to_id('s3', 'bucket_id', 'name', bucket_name)
+        existing_bucket = s3_bucket()
+        for attribute in existing_bucket.properties:
+            existing_bucket.define_bucket_properties(attribute, [x[0] for x in create_db_connection(text(f"SELECT {attribute} FROM s3 WHERE user_id = {user_id} AND bucket_id = {bucket_id}"), return_result=True)][0])
+        transfer_func(_username, existing_bucket)
+    except:
+        print(f'THERE IS NO BUCKET UNDER NAME {bucket_name} FOR USER {_username}!')
 
-def etag_create():
-    sequence = []
-    for i in range(32):
-        num_or_letter = random.randint(1, 2)
-        if num_or_letter == 1:
-            sequence.append(random.randint(48, 57))
-        elif num_or_letter == 2:
-            upper_or_lower = random.randint(1, 2)
-            if upper_or_lower == 1:
-                sequence.append(random.randint(65, 90))
-            elif upper_or_lower == 2:
-                sequence.append(random.randint(97, 122))
-    return ''.join([chr(x) for x in sequence])
+def mk_bucket(_username, bucket_name, transfer_func):
+    new_bucket = s3_bucket()
+    new_bucket = set_vv_abap(new_bucket, 'name')
+    ow_def_set = input('Override default settings? (Y/N): ')
+    while ow_def_set not in ['Y', 'N']:
+        print('ERROR! ENTER Y or N!')
+        ow_def_set = input('Override default settings? (Y/N): ')
+    if ow_def_set == 'Y':
+        print(f'Avaliable changeable properties: {','.join(new_bucket.properties)}\n')
+        def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+        while def_pv_to_change != 'DONE':
+            try:
+                new_bucket = set_vv_abap(new_bucket, def_pv_to_change)
+            except:
+                pass
+            print(f'Avaliable changeable properties: {','.join(new_bucket.properties)}\n')
+            def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+    upload_properties_to_db(new_bucket, _username)
+    create_s3_directory(_username, new_bucket)
 
-def get_file_size_in_units(file_path):
-    file_size_bytes = os.path.getsize(file_path)
-    
-    # Convert bytes to KB, MB, GB, etc.
-    if file_size_bytes < 1024:
-        return f"{file_size_bytes} bytes"
-    elif file_size_bytes < 1024 ** 2:
-        return f"{file_size_bytes / 1024:.2f} KB"
-    elif file_size_bytes < 1024 ** 3:
-        return f"{file_size_bytes / (1024 ** 2):.2f} MB"
-    else:
-        return f"{file_size_bytes / (1024 ** 3):.2f} GB"
+def del_bucket_ap(_username, bucket_name, transfer_func):
+    try:
+        remove_bucket_db_dir([x[0] for x in create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)][0]
+                            ,[x[0] for x in create_db_connection(text(f"SELECT bucket_id FROM s3 WHERE name = '{bucket_name}'"), return_result=True)][0])
+        shutil.rmtree(f"AWS/users/{_username}/s3/{bucket_name}")
+    except:
+        print(f'A VALID BUCKET NAME FOR THIS USER MUST BE SPECIFIED! BUCKET DELETE UNSUCCESSFUL!')
 
-def persist_object(_bucket, username, object_name, object_path):
-    cols = ['user_id', 'bucket_id']
-    user_id = name_to_id('user_credentials', 'user_id', 'username', username)
-    bucket_id = name_to_id('s3', 'bucket_id', 'name', _bucket.name)
-    prepro_vals = [user_id, bucket_id]
-    vals = []
-    new_object = s3_object(
-        uri=f's3://{_bucket.name}/{object_name}',
-        arn=f'arn:aws:s3:::{_bucket.name}/{object_name}',
-        version = version_bucket(_bucket),
-        etag= etag_create(),
-        object_url = f'{object_path}{object_name}',
-        owner = username,
-        last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
-        size = get_file_size_in_units(f'{object_path}{object_name}'),
-        type = object_name.split('.')[1])
-    for attribute in new_object.properties:
-        cols.append(attribute)
-        prepro_vals.append(new_object.get_object_properties(attribute))
-    for val in prepro_vals:
-        if ((isinstance(val, str)) or (isinstance(val, datetime))):
-            vals.append(f"'{str(val)}'")
-        elif isinstance(val, list):
-            vals.append(f"ARRAY{val}")
-        else:
-            vals.append(str(val))
-    create_db_connection(create_row('s3_bucket', cols, vals))
+def updt_bucket_ap(_username, bucket_name, transfer_func):
+    update_bucket([x[0] for x in create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)][0]
+                 ,[x[0] for x in create_db_connection(text(f"SELECT bucket_id FROM s3 WHERE name = '{bucket_name}'"), return_result=True)][0])
+
+def ls_bucket(_username, bucket_name, transfer_func):
+    user_id = [x[0] for x in create_db_connection(text(f"SELECT user_id from user_credentials WHERE username = '{_username}'"), return_result=True)][0]
+    for bucket_name in [x[0] for x in create_db_connection(text(f"SELECT name FROM s3 WHERE user_id = {user_id}"), return_result=True)]:
+        print(f'{bucket_name}')
+
+def bucketSettings(_username, bucket_name, transfer_func):
+    dummy_bucket = s3_bucket()
+    for property in dummy_bucket.properties:
+        print(f'{property}')
 
 if __name__ == '__main__':
     pass

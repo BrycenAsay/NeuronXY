@@ -115,7 +115,7 @@ def encrypt_password(password):
     # Return the hashed password (encoded as a hex string for storage)
     return hashed_password
 
-def create_creds():
+def create_creds(unused_param):
     username = input('Please enter a new username: ')
     password = getpass.getpass('Please enter a password (must be a minimum of 16 characters long): ')
     while len(password) < 16:
@@ -152,3 +152,9 @@ def verify_login():
             logging.error('did not work: ', e)
             # print(f"THERE WAS AN ERROR WITH THE FOLLOWING SQL SCRIPT: {sql}")
             conn.rollback()
+
+def aws_login(transfer_func):
+        valid_login = verify_login()
+        if valid_login[0]:
+            print(f'Welcome {valid_login[1]}! Please select a service to get started :)')
+            transfer_func(valid_login[1])
