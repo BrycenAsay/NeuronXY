@@ -7,7 +7,7 @@ def create_db_connection(_sql, return_result:bool = False):
         try:
             if return_result:
                 result = conn.execute(_sql).fetchall()
-                return result
+                return [row[0] for row in result]
             else:
                 conn.execute(_sql)
                 conn.commit()
@@ -42,4 +42,4 @@ def check_if_value_exists(table_name, column_name, value):
     return query
 
 def name_to_id(table_name, id_column, name_column, name):
-    return [x[0] for x in create_db_connection(text(f"SELECT {id_column} FROM {table_name} WHERE {name_column} = '{name}'"), return_result=True)][0]
+    return create_db_connection(text(f"SELECT {id_column} FROM {table_name} WHERE {name_column} = '{name}'"), return_result=True)[0]
