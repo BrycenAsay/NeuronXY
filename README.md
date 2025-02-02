@@ -1,4 +1,4 @@
-# AWS Fake CLI Project
+# AWS Mockup CLI Project
 This project contains code for a working mock up CLI for AWS (please note these 'services' do not actual work nor have full functionality and are only meant as rough simulations of the same service as it relates to AWS)
 
 
