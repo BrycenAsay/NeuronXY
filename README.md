@@ -3,11 +3,11 @@ This project contains code for a working mock up CLI for AWS (please note these 
 
 ### config.py File and it's Contents
 The config file contains the db information in order to connect to the database, here are the following parameters that should be specified:
-DATABASE = os.getenv('POSTGRES_DB', 'awsmockdb')
-HOST = os.getenv('POSTGRES_HOST', 'db')
-PORT = os.getenv('POSTGRES_PORT', '5432')
-USER = os.getenv('POSTGRES_USER', 'admin')
-PASSWORD = os.getenv('PASSWORD')
+- DATABASE = os.getenv('POSTGRES_DB', 'awsmockdb')
+- HOST = os.getenv('POSTGRES_HOST', 'db')
+- PORT = os.getenv('POSTGRES_PORT', '5432')
+- USER = os.getenv('POSTGRES_USER', 'admin')
+- PASSWORD = os.getenv('PASSWORD')
 
 ### Needed Empty Directory and Subdirectory Structure
 - AWS
