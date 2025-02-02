@@ -24,6 +24,12 @@ def create_row(table_name, columns:list, data:list):
     query = text(f'INSERT INTO {table_name}({columns}) VALUES ({data});')
     return query
 
+def delete_row_one_id(table_name, id_uno, value_uno):
+    """Given two ids for a row, deletes all columns attached to the two ids. You must specifiy the id and the associated value
+    as part of the function parameters"""
+    query = text(f'DELETE FROM {table_name} WHERE {id_uno} = {value_uno};')
+    return query
+
 def delete_row_two_ids(table_name, id_uno, value_uno, id_dos, value_dos):
     """Given two ids for a row, deletes all columns attached to the two ids. You must specifiy the id and the associated value
     as part of the function parameters"""

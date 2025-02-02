@@ -1,4 +1,4 @@
-from account_creation import create_creds, reset_password, aws_login
+from account_creation import create_creds, reset_password, aws_login, delete_user
 from s3 import sel_bucket, mk_bucket, del_bucket_ap, updt_bucket_ap, ls_bucket, bucketSettings
 from s3_bucket import upload_object
 import logging
@@ -94,7 +94,8 @@ class terminal:
         """command heirchey specified by terminal"""
         if self.terminal_type == 'ap':
             self.run_cmds({'aws': {'login': aws_login, 
-                                   'create': {'user': create_creds}}}, param_list)
+                                   'create': {'user': create_creds},
+                                   '-del': {'user': delete_user}}}, param_list)
         elif self.terminal_type == 'acct':
             self.run_cmds({'-res': {'password': reset_password}, 
                            '-srv': {'s3': s3_def_terminal}}, param_list)

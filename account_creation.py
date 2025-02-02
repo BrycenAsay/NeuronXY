@@ -1,9 +1,10 @@
 import random
 import hashlib
+import shutil
 import getpass
 import os
 from sqlalchemy import text
-from sql_helper import create_row, update_row, check_if_user_exists, create_db_connection
+from sql_helper import create_row, update_row, check_if_user_exists, create_db_connection, delete_row_one_id, name_to_id
 
 def persist_creds(_username, _password):
     """Creates database connection and saves password + username combination to the database
@@ -126,6 +127,24 @@ def create_creds(unused_param):
     password = encrypt_password(salt_pass(username, password))
     persist_creds(username, password) # after getting password and username, persist credentials in the DB
 
+def delete_user(unused_param):
+    """Verifies a combination of username, password, and secret salt string credentials and secret salt instruction string
+    exist in the database, then deletes the user"""
+    username = input('Please enter your username: ')
+    password = getpass.getpass('Please enter your password: ')
+    salt = input('Please enter your unique salt value: ')
+    password = encrypt_password(salt_pass(username, password, salt)) #encrypt password according to salt value provided
+    result = create_db_connection(text(f"SELECT 1 FROM user_credentials WHERE username = '{username}' AND password = '{password}'"), return_result=True)
+    if 1 in result: # if 1 is returned, we know that the combination exists, login successful, return True and username for acct terminal entry
+        print(f'Are you sure you want to delete user {username}? Please note that this action cannot be undone, and all resources related to this account will be lost!')
+        confirm_delete = input('Type CONFIRM to proceed with user and resource deletion: ')
+        if confirm_delete == 'CONFIRM': # if delete is confirmed, remove entry from user credentials (this should cascade and delete any rows in related tables for this user) and remove user subdirectory
+            create_db_connection(delete_row_one_id('user_credentials', 'user_id', name_to_id('user_credentials', 'user_id', 'username', username)))
+            shutil.rmtree(f"AWS/users/{username}")
+            print(f'User {username} and any related resources have successfully been deleted')
+    else: # otherwise, return False and login not successful
+        print('ERROR: The user/password combination was not found!')
+
 def reset_password(_username):
     """Asks for a new password, then updates credentials and secretSalt file accordingly"""
     new_password = getpass.getpass('Please enter a new password: ')
@@ -142,7 +161,7 @@ def verify_login():
     password = getpass.getpass('Please enter your password: ')
     salt = input('Please enter your unique salt value: ')
     password = encrypt_password(salt_pass(username, password, salt)) #encrypt password according to salt value provided
-    result = create_db_connection(text(f"SELECT 1 as \"password_correct\" FROM user_credentials WHERE username = '{username}' AND password = '{password}'"), return_result=True)
+    result = create_db_connection(text(f"SELECT 1 FROM user_credentials WHERE username = '{username}' AND password = '{password}'"), return_result=True)
     if 1 in result: # if 1 is returned, we know that the combination exists, login successful, return True and username for acct terminal entry
         print('LOGIN WAS SUCCESSFULL! HAVE A GOOD DAY MATE!')
         return [True, username]
