@@ -1,9 +1,10 @@
 from sqlalchemy import text, create_engine
-from config import USER, PASSWORD, HOST, DATABASE
+from config import USER, PASSWORD, HOST, PORT, DATABASE
+import logging
 
 def create_db_connection(_sql, return_result:bool = False):
     """Creates a database connection and runs a specified sql command. Returns results if return_result is set to True, it is False by default"""
-    engine = create_engine(f'postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}/{DATABASE}')
+    engine = create_engine(f'postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}')
     with engine.connect() as conn:
         try:
             if return_result:

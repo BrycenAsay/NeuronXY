@@ -4,17 +4,11 @@
 
 CREATE TABLE IF NOT EXISTS public.user_credentials
 (
-    user_id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    user_id SERIAL,
     username character varying(25) COLLATE pg_catalog."default" NOT NULL,
     password character varying(2000) COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT user_credentials_pkey PRIMARY KEY (user_id)
-)
-
-TABLESPACE pg_default;
-
-ALTER TABLE IF EXISTS public.user_credentials
-    OWNER to postgres;
-
+);
 
 -- Table: public.s3
 
@@ -23,7 +17,7 @@ ALTER TABLE IF EXISTS public.user_credentials
 CREATE TABLE IF NOT EXISTS public.s3
 (
     user_id integer NOT NULL,
-    bucket_id integer NOT NULL DEFAULT nextval('id_seq'::regclass),
+    bucket_id SERIAL,
     name character varying(63) COLLATE pg_catalog."default",
     bucket_type character varying(3) COLLATE pg_catalog."default",
     bucket_versioning boolean,
@@ -39,12 +33,7 @@ CREATE TABLE IF NOT EXISTS public.s3
         REFERENCES public.user_credentials (user_id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
-)
-
-TABLESPACE pg_default;
-
-ALTER TABLE IF EXISTS public.s3
-    OWNER to postgres;
+);
 
 -- Table: public.s3_bucket
 
@@ -54,7 +43,7 @@ CREATE TABLE IF NOT EXISTS public.s3_bucket
 (
     user_id integer NOT NULL,
     bucket_id integer NOT NULL,
-    object_id integer NOT NULL DEFAULT nextval('s3_bucket_object_id_seq'::regclass),
+    object_id SERIAL,
     version smallint,
     uri character varying(200) COLLATE pg_catalog."default",
     arn character varying(200) COLLATE pg_catalog."default",
@@ -75,9 +64,4 @@ CREATE TABLE IF NOT EXISTS public.s3_bucket
         REFERENCES public.user_credentials (user_id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
-)
-
-TABLESPACE pg_default;
-
-ALTER TABLE IF EXISTS public.s3_bucket
-    OWNER to postgres;
+);
