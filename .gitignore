@@ -2,3 +2,4 @@
 /config.py
 /test.py
 /__pycache__
+/postgres_data

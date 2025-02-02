@@ -1,0 +1,4 @@
+# All third party depencies
+psycopg2-binary
+sqlalchemy
+pytz

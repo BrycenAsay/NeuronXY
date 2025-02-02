@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: p1934rubvf-1938rfv-98sdyfgpeowquhfgvp[312908yut
+      POSTGRES_DB: awsmockdb
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./sql-init-scripts:/docker-entrypoint-initdb.d # Run DB initilization scripts
+  cli:
+    build: .
+    stdin_open: true
+    tty: true
+    command: ["bash", "-c", "python main.py; exec bash"]
+    image: aws-mockup-cli
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=p1934rubvf-1938rfv-98sdyfgpeowquhfgvp[312908yut
+      - POSTGRES_DB=awsmockdb
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
