@@ -17,6 +17,8 @@ services:
     tty: true
     command: ["bash", "-c", "python main.py; exec bash"]
     image: aws-mockup-cli
+    volumes:
+      - app_data:/app/AWS
     environment:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
@@ -27,4 +29,4 @@ services:
       - db
 
 volumes:
-  postgres_data:
+  app_data:
