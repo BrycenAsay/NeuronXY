@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS public.s3
     user_id integer NOT NULL,
     bucket_id SERIAL,
     name character varying(63) COLLATE pg_catalog."default",
+    arn character varying(200) COLLATE pg_catalog."default",
     bucket_type character varying(3) COLLATE pg_catalog."default",
     bucket_versioning boolean,
     acl_enabled boolean,

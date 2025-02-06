@@ -22,10 +22,11 @@ class s3_bucket:
     object_lock: prevents objects from being deleted or overwritten when specified
     """
     def __init__(self,
-                 properties = ['name', 'bucket_type', 'bucket_versioning', 'acl_enabled', 
+                 properties = ['name', 'arn', 'bucket_type', 'bucket_versioning', 'acl_enabled', 
                                'block_public_access', 'bucket_key', 'object_lock', 'encrypt_method',
                                'bucket_policy', 'tags'],
                  name = '',
+                 arn = '',
                  bucket_type = 'gp', 
                  bucket_versioning:bool=False, 
                  acl_enabled:bool=False, 
@@ -37,6 +38,7 @@ class s3_bucket:
                  tags=[]):
         self.properties = properties
         self.name = name
+        self.arn = arn
         self.block_public_access = block_public_access
         self.acl_enabled = acl_enabled
         self.bucket_policy = bucket_policy
@@ -80,6 +82,8 @@ class s3_bucket:
         """Allows defining of bucket properties that are already known without prompting the user"""
         if attr == 'name':
             self.name = value
+        if attr == 'arn':
+            self.arn = value
         if attr == 'block_public_access':
             self.block_public_access = value
         if attr == 'acl_enabled':
@@ -103,6 +107,8 @@ class s3_bucket:
         """returns the current bucket property value for a given attribute"""
         if attr == 'name':
             return self.name
+        if attr == 'arn':
+            return self.arn
         if attr == 'block_public_access':
             return self.block_public_access
         if attr == 'acl_enabled':
@@ -240,6 +246,7 @@ def mk_bucket(_username, bucket_name, transfer_func):
     """Creates a new s3 bucket, s3 bucket subdirectory within s3 directory, and persists information in DB"""
     new_bucket = s3_bucket() # create instance of s3_bucket object
     new_bucket = set_vv_abap(new_bucket, 'name') # set values that do not have default values
+    new_bucket.define_bucket_properties('arn', f'arn:aws:s3:::{new_bucket.name}')
     ow_def_set = input('Override default settings? (Y/N): ')
     while ow_def_set not in ['Y', 'N']:
         print('ERROR! ENTER Y or N!')
