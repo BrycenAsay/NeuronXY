@@ -1,7 +1,7 @@
 import json
 import shutil
 import os
-from sql_helper import create_row, create_db_connection, delete_row_two_ids, update_row_dos_id, name_to_id
+from sql_helper import create_row, create_db_connection, delete_row, update_row_dos_id, name_to_id
 from sqlalchemy import text
 
 y_or_n_input = lambda x: True if x == 'Y' else False # returns true if value is 'Y' (yes) otherwise defaults to False
@@ -189,7 +189,7 @@ def upload_properties_to_db(bucket, _username):
 
 def remove_bucket_db_dir(_user_id, _bucket_id):
     """deletes both the bucket row in the DB and removes the s3 bucket subdirectory"""
-    create_db_connection(delete_row_two_ids('s3', 'user_id', _user_id, 'bucket_id', _bucket_id))
+    create_db_connection(delete_row('s3', ['user_id', 'bucket_id'], [_user_id, _bucket_id]))
 
 def update_bucket(_user_id, _bucket_id):
     """allows for users to update existing s3 bucket settings"""
