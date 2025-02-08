@@ -1,6 +1,6 @@
 from account_creation import create_creds, reset_password, aws_login, delete_user
 from s3 import sel_bucket, mk_bucket, del_bucket_ap, updt_bucket_ap, ls_bucket, bucketSettings
-from s3_bucket import upload_object
+from s3_bucket import upload_object, delete_object
 import logging
 
 class terminal:
@@ -107,7 +107,8 @@ class terminal:
                            '-ls': {'bucket': ls_bucket},
                            'bucket_settings': bucketSettings}, param_list)
         elif self.terminal_type == 's3_bucket':
-            self.run_cmds({'-upld': upload_object}, param_list)
+            self.run_cmds({'-upld': upload_object,
+                           '-del': delete_object}, param_list)
 
 def dynamic_term_vals(terminal_type, _term_cmd_obj, _term_spec_parm): 
     """function that sets dynamic cmd line arguments into the terminal instance (ex: name of a bucket or bucket object)"""
