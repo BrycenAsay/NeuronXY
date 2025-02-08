@@ -23,24 +23,16 @@ def create_row(table_name, columns:list, data:list):
     data = ",".join(data)
     query = text(f'INSERT INTO {table_name}({columns}) VALUES ({data});')
     return query
-
-def delete_row_one_id(table_name, id_uno, value_uno):
-    """Given two ids for a row, deletes all columns attached to the two ids. You must specifiy the id and the associated value
-    as part of the function parameters"""
-    query = text(f'DELETE FROM {table_name} WHERE {id_uno} = {value_uno};')
-    return query
-
-def delete_row_two_ids(table_name, id_uno, value_uno, id_dos, value_dos):
-    """Given two ids for a row, deletes all columns attached to the two ids. You must specifiy the id and the associated value
-    as part of the function parameters"""
-    query = text(f'DELETE FROM {table_name} WHERE {id_uno} = {value_uno} AND {id_dos} = {value_dos};')
-    return query
-
-def delete_row_three_ids(table_name, id_uno, value_uno, id_dos, value_dos, id_uch, value_uch):
-    """Given three ids for a row, deletes all columns attached to the two ids. You must specifiy the id and the associated value
-    as part of the function parameters"""
-    query = text(f'DELETE FROM {table_name} WHERE {id_uno} = {value_uno} AND {id_dos} = {value_dos} AND {id_uch} = {value_uch};')
-    return query
+    
+def delete_row(table_name, ids:list, values:list):
+    """Accepts a list of ids and correlated values with those ids to delete entires from a specified table"""
+    where_id_eq_val = []
+    for i in range(len(ids)):
+        if i == 0:
+            where_id_eq_val.append(f'WHERE {ids[i]} = {values[i]}')
+        else:
+            where_id_eq_val.append(f'AND {ids[i]} = {values[i]}')
+    return text(f'DELETE FROM {table_name} {where_id_eq_val[0]} {' '.join(where_id_eq_val[1:len(where_id_eq_val)])}')
 
 def update_row(table_name, column, data, where_1, eq_value_1):
     """Updates row given one column equals one value. Must specify column and the associated value as part of the function parameters"""
