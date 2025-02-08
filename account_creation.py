@@ -4,7 +4,7 @@ import shutil
 import getpass
 import os
 from sqlalchemy import text
-from sql_helper import create_row, update_row, check_if_user_exists, create_db_connection, delete_row_one_id, name_to_id
+from sql_helper import create_row, update_row, check_if_user_exists, create_db_connection, name_to_id, delete_row
 
 def persist_creds(_username, _password):
     """Creates database connection and saves password + username combination to the database
@@ -139,7 +139,7 @@ def delete_user(unused_param):
         print(f'Are you sure you want to delete user {username}? Please note that this action cannot be undone, and all resources related to this account will be lost!')
         confirm_delete = input('Type CONFIRM to proceed with user and resource deletion: ')
         if confirm_delete == 'CONFIRM': # if delete is confirmed, remove entry from user credentials (this should cascade and delete any rows in related tables for this user) and remove user subdirectory
-            create_db_connection(delete_row_one_id('user_credentials', 'user_id', name_to_id('user_credentials', 'user_id', 'username', username)))
+            create_db_connection(delete_row('user_credentials', ['user_id'], [name_to_id('user_credentials', 'user_id', 'username', username)]))
             shutil.rmtree(f"AWS/users/{username}")
             print(f'User {username} and any related resources have successfully been deleted')
     else: # otherwise, return False and login not successful
