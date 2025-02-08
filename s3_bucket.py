@@ -3,7 +3,7 @@ import random
 import os
 import pytz
 import shutil
-from sql_helper import create_row, create_db_connection, name_to_id, delete_row_three_ids
+from sql_helper import create_row, create_db_connection, name_to_id, delete_row
 
 class s3_object:
     """s3 object object (yea I said object twice X), attributes for objects within a bucket currently include:
@@ -163,8 +163,7 @@ def delete_object(_username, bucket, object_name):
     destination = f"AWS/externalFiles/"
     try: # attempt to find object name in externalFiles and move object to subdirectory. Afterwards, record object details in DB
         shutil.move(source, destination)
-        create_db_connection(delete_row_three_ids('s3_bucket', 'user_id', name_to_id('user_credentials', 'user_id', 'username', _username),
-                                                               'bucket_id', name_to_id('s3', 'bucket_id', 'name', bucket.name),
-                                                               'object_id', name_to_id('s3_bucket', 'object_id', 'arn', f'arn:aws:s3:::{bucket.name}/{object_name}')))
+        create_db_connection(delete_row('s3_bucket', ['user_id', 'bucket_id', 'object_id'], [name_to_id('user_credentials', 'user_id', 'username', _username),
+        name_to_id('s3', 'bucket_id', 'name', bucket.name), name_to_id('s3_bucket', 'object_id', 'arn', f'arn:aws:s3:::{bucket.name}/{object_name}')]))
     except: # if object is not found, throw error that object could not be found
         print(f'ERROR! No object under name "{object_name}" found! Please ensure object exists in bucket {bucket.name} or ensure object name is spelled correctly!')
