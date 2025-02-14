@@ -171,7 +171,7 @@ def persist_object(_bucket, username, object_name, object_path):
             vals.append(str(val))
     create_db_connection(create_row('s3_bucket', cols, vals))
 
-def upload_object(_username, bucket, object_name):
+def upload_object(_username, bucket, object_name, perm_tag):
     """Uploads object from externalFiles folder into an s3 bucket and records details in the DB"""
     source = f"AWS/externalFiles/{object_name}"
     destination = f"AWS/users/{_username}/s3/{bucket.name}/"
@@ -191,13 +191,30 @@ def upload_object(_username, bucket, object_name):
     except: # if object is not found, throw error that object could not be found
         print(f'ERROR! No object under name "{object_name}" found! Please ensure object is in the "externalFiles" directory or ensure object name is spelled correctly!')
 
-def delete_object(_username, bucket, object_name):
-    """Uploads object from externalFiles folder into an s3 bucket and records details in the DB"""
+def delete_object(_username, bucket, object_name, perm_tag:bool=False):
+    """Removes object from DB and bucket directory"""
     source = f"AWS/users/{_username}/s3/{bucket.name}/{object_name}"
-    destination = f"AWS/externalFiles/"
-    try: # attempt to find object name in externalFiles and move object to subdirectory. Afterwards, record object details in DB
-        shutil.move(source, destination)
-        create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'object_id'], [name_to_id('user_credentials', 'user_id', 'username', _username),
-        name_to_id('s3', 'bucket_id', 'name', bucket.name), name_to_id('s3_bucket', 'object_id', 'arn', f'arn:aws:s3:::{bucket.name}/{object_name}')], 'DELETE'))
-    except: # if object is not found, throw error that object could not be found
-        print(f'ERROR! No object under name "{object_name}" found! Please ensure object exists in bucket {bucket.name} or ensure object name is spelled correctly!')
+    if (bucket.bucket_versioning and not perm_tag):
+        sub_version_ids = create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], 
+                                                            [name_to_id('user_credentials', 'user_id', 'username', _username),
+                                                            name_to_id('s3', 'bucket_id', 'name', bucket.name),
+                                                            f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'SELECT object_id, sub_version_id, version_id', order_state='ORDER BY sub_version_id DESC'), multi_return=[True, 3])
+        if sub_version_ids[0] == []:
+            print(f'ERROR! No object under name "{object_name}" found! Please ensure object exists in bucket {bucket.name} or ensure object name is spelled correctly!')
+        elif (sub_version_ids[2][0] == 'delete-marker'):
+            print(f'ERROR! Final object version already marked as deleted, please use the --perm tag or disable versioning if you wish to permenantly delete this object!')
+        elif sub_version_ids[1][0] == sub_version_ids[1][-1]:
+            create_db_connection(row_action('', ['user_id', 'bucket_id', 'object_id'], 
+                                                [name_to_id('user_credentials', 'user_id', 'username', _username),
+                                                name_to_id('s3', 'bucket_id', 'name', bucket.name),
+                                                sub_version_ids[0][0]], f"UPDATE s3_bucket SET version_id = 'delete-marker'", frm_keywrd=''))
+        elif sub_version_ids[1][0] > sub_version_ids[1][-1]:
+            create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'object_id'], [name_to_id('user_credentials', 'user_id', 'username', _username),
+            name_to_id('s3', 'bucket_id', 'name', bucket.name), sub_version_ids[0][0]], 'DELETE'))
+    else:
+        try: # attempt to find object name in externalFiles and move object to subdirectory. Afterwards, record object details in DB
+            os.remove(source)
+            create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], [name_to_id('user_credentials', 'user_id', 'username', _username),
+            name_to_id('s3', 'bucket_id', 'name', bucket.name), f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'DELETE'))
+        except: # if object is not found, throw error that object could not be found
+            print(f'ERROR! No object under name "{object_name}" found! Please ensure object exists in bucket {bucket.name} or ensure object name is spelled correctly!')
