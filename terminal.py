@@ -24,7 +24,8 @@ class terminal:
                                'login': 'Used to log into the AWS application',
                                'user': 'Used in combination with other commands to control users',
                                'create': 'Used as the create command',
-                               'bucket': 'Used in combination with otehr commands to control s3 buckets, typically you would perceed this keyword with the name of an existing bucket'},
+                               'bucket': 'Used in combination with otehr commands to control s3 buckets, typically you would perceed this keyword with the name of an existing bucket',
+                               '--perm': 'Permenanet tag, used to override any backup processes (not generally recommended)'},
                  cmds=None):
         self.cmds_help_dict = cmds_help_dict
         self.terminal_type = terminal_type
@@ -43,8 +44,20 @@ class terminal:
         except:
             return None
 
-    def question_command(self, _cmds):
-        list(map(lambda x: print(x), [key for key in _cmds]))
+    def question_command(self, _cmds, raw_cmds):
+        if ('?' in [self.get_commands(x) for x in range(len(self.cmds))]):
+            unaltered_cmds = _cmds.copy()
+            if 'cmd_tags' in _cmds:
+                del _cmds['cmd_tags']
+            for cmd in raw_cmds[0:raw_cmds.index('?')]:
+                _cmds = _cmds[cmd]
+            if isinstance(_cmds, dict):
+                list(map(lambda x: print(x), [key for key in _cmds]))
+            try:
+                list(map(lambda x: print(x), [key for key in unaltered_cmds['cmd_tags'][raw_cmds[raw_cmds.index('?') - 1]]]))
+            except:
+                pass
+            return True
 
     def help_command(self, raw_cmds):
         """Baked in terminal command which provides what a given set of commands does"""
@@ -55,17 +68,16 @@ class terminal:
             joined_explanation = " --> ".join(cmd_lineage)
             print(f'{joined_explanation}')
             return True
-        else:
-            return False
 
     def run_cmds(self, cmds, param_list:list=[]): 
         """executes each command in order until it reaches None or a callable function"""
         needs_help = self.help_command([self.get_commands(x) for x in range(len(self.cmds))])
+        question_cmd = self.question_command(cmds, [self.get_commands(x) for x in range(len(self.cmds))])
         for cmd_num in range(len(self.cmds)):
             if needs_help:
                 pass
-            elif self.get_commands(cmd_num) == '?':
-                self.question_command(cmds)
+            elif question_cmd:
+                pass
             elif self.get_commands(cmd_num) is not None:
                 cmds = cmds[self.get_commands(cmd_num)]
                 if callable(cmds):
@@ -89,14 +101,17 @@ class terminal:
                            'bucket_settings': bucketSettings}, param_list)
         elif self.terminal_type == 's3_bucket':
             self.run_cmds({'-upld': upload_object,
-                           '-del': delete_object}, param_list)
+                           '-del': delete_object,
+                           'cmd_tags': {'-del': ['--perm']}}, param_list)
 
 def dynamic_term_vals(terminal_type, _term_cmd_obj, _term_spec_parm): 
     """function that sets dynamic cmd line arguments into the terminal instance (ex: name of a bucket or bucket object)"""
     if terminal_type == 's3':
         _term_spec_parm[1] = _term_cmd_obj.get_commands(2)
     elif terminal_type == 's3_bucket':
-        _term_spec_parm[2] = _term_cmd_obj.get_commands(1)
+        _term_spec_parm[2] = _term_cmd_obj.get_commands(-1)
+        if _term_cmd_obj.get_commands(1) == '--perm':
+            _term_spec_parm[3] = True
     return _term_spec_parm
 
 def terminal_entry(_terminal_type, cmd_str, term_spec_parm:list=[]): 
@@ -138,7 +153,7 @@ def s3_bucket_terminal(_username, bucket):
     """allows access into the s3 bucket command line for a logged in user and specified existing user bucket"""
     prompt_command = input(f'AWS\\users\\{_username}\\s3\\{bucket.name}> ')
     while prompt_command != 'exit':
-        terminal_entry('s3_bucket', prompt_command, [_username, bucket, None])
+        terminal_entry('s3_bucket', prompt_command, [_username, bucket, None, False])
         prompt_command = input(f'AWS\\users\\{_username}\\s3\\{bucket.name}> ')
     s3_def_terminal(_username)
 
