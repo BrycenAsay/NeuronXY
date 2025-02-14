@@ -24,7 +24,7 @@ def create_row(table_name, columns:list, data:list):
     query = text(f'INSERT INTO {table_name}({columns}) VALUES ({data});')
     return query
     
-def delete_row(table_name, ids:list, values:list):
+def row_action(table_name, ids:list, values:list, action_type, frm_keywrd='FROM'):
     """Accepts a list of ids and correlated values with those ids to delete entires from a specified table"""
     where_id_eq_val = []
     for i in range(len(ids)):
@@ -32,7 +32,7 @@ def delete_row(table_name, ids:list, values:list):
             where_id_eq_val.append(f'WHERE {ids[i]} = {values[i]}')
         else:
             where_id_eq_val.append(f'AND {ids[i]} = {values[i]}')
-    return text(f'DELETE FROM {table_name} {where_id_eq_val[0]} {' '.join(where_id_eq_val[1:len(where_id_eq_val)])}')
+    return text(f'{action_type} {frm_keywrd} {table_name} {where_id_eq_val[0]} {' '.join(where_id_eq_val[1:len(where_id_eq_val)])}')
 
 def update_row(table_name, column, data, where_1, eq_value_1):
     """Updates row given one column equals one value. Must specify column and the associated value as part of the function parameters"""
@@ -56,4 +56,7 @@ def check_if_value_exists(table_name, column_name, value):
 
 def name_to_id(table_name, id_column, name_column, name):
     """Converts a name to a numerical ID. Unique INT ids exist for easier DB row management"""
-    return create_db_connection(text(f"SELECT {id_column} FROM {table_name} WHERE {name_column} = '{name}'"), return_result=True)[0]
+    try:
+      return create_db_connection(text(f"SELECT {id_column} FROM {table_name} WHERE {name_column} = '{name}'"), return_result=True)[0]
+    except:
+      return 999999999
