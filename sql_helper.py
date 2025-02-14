@@ -2,7 +2,7 @@ from sqlalchemy import text, create_engine
 from config import USER, PASSWORD, HOST, PORT, DATABASE
 import logging
 
-def create_db_connection(_sql, return_result:bool = False):
+def create_db_connection(_sql, return_result:bool = False, multi_return:list = [False, 0]):
     """Creates a database connection and runs a specified sql command. Returns results if return_result is set to True, it is False by default"""
     engine = create_engine(f'postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}')
     with engine.connect() as conn:
@@ -10,6 +10,12 @@ def create_db_connection(_sql, return_result:bool = False):
             if return_result:
                 result = conn.execute(_sql).fetchall()
                 return [row[0] for row in result]
+            elif multi_return[0]:
+                result = conn.execute(_sql).fetchall()
+                mast_list = []
+                for i in range(multi_return[1]):
+                    mast_list.append([row[i] for row in result])
+                return mast_list
             else:
                 conn.execute(_sql)
                 conn.commit()
@@ -24,7 +30,7 @@ def create_row(table_name, columns:list, data:list):
     query = text(f'INSERT INTO {table_name}({columns}) VALUES ({data});')
     return query
     
-def row_action(table_name, ids:list, values:list, action_type, frm_keywrd='FROM'):
+def row_action(table_name, ids:list, values:list, action_type, frm_keywrd='FROM', group_state='', order_state='', limit_state=''):
     """Accepts a list of ids and correlated values with those ids to delete entires from a specified table"""
     where_id_eq_val = []
     for i in range(len(ids)):
@@ -32,7 +38,7 @@ def row_action(table_name, ids:list, values:list, action_type, frm_keywrd='FROM'
             where_id_eq_val.append(f'WHERE {ids[i]} = {values[i]}')
         else:
             where_id_eq_val.append(f'AND {ids[i]} = {values[i]}')
-    return text(f'{action_type} {frm_keywrd} {table_name} {where_id_eq_val[0]} {' '.join(where_id_eq_val[1:len(where_id_eq_val)])}')
+    return text(f'{action_type} {frm_keywrd} {table_name} {where_id_eq_val[0]} {' '.join(where_id_eq_val[1:len(where_id_eq_val)])} {group_state} {order_state} {limit_state}')
 
 def update_row(table_name, column, data, where_1, eq_value_1):
     """Updates row given one column equals one value. Must specify column and the associated value as part of the function parameters"""
