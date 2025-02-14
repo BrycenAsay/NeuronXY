@@ -3,7 +3,7 @@ import random
 import os
 import pytz
 import shutil
-from sql_helper import create_row, create_db_connection, name_to_id, delete_row
+from sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row
 
 class s3_object:
     """s3 object object (yea I said object twice X), attributes for objects within a bucket currently include:
@@ -21,10 +21,11 @@ class s3_object:
     tags: list of tags associated with the bucket
     """
     def __init__(self,
-                properties=['uri', 'arn', 'version', 'etag', 'object_url', 'owner', 'last_modified', 'size', 'type', 'storage_class', 'tags'],
+                properties=['uri', 'arn', 'sub_version_id', 'version_id', 'etag', 'object_url', 'owner', 'last_modified', 'size', 'type', 'storage_class', 'tags'],
                 uri='', 
                 arn='',
-                version=0, 
+                sub_version_id=0,
+                version_id='', 
                 etag='', 
                 object_url='', 
                 owner='', 
@@ -36,7 +37,8 @@ class s3_object:
         self.properties = properties
         self.uri = uri
         self.arn = arn
-        self.version = version
+        self.sub_version_id = sub_version_id
+        self.version_id = version_id
         self.etag = etag
         self.object_url = object_url
         self.owner = owner
@@ -52,8 +54,10 @@ class s3_object:
             return self.uri
         if attr == 'arn':
             return self.arn
-        if attr == 'version':
-            return self.version
+        if attr == 'sub_version_id':
+            return self.sub_version_id
+        if attr == 'version_id':
+            return self.version_id
         if attr == 'etag':
             return self.etag
         if attr == 'object_url':
@@ -82,12 +86,19 @@ class s3_object:
             else:
                 return True
 
-def version_bucket(bucket):
+def version_bucket(_username, bucket, object_name):
     """Will version an object depending on the ordinal value of the object upload"""
     if bucket.bucket_versioning:
-        return 1 # will build in versioning logic later
+        obj_sub_vers_ids = create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], 
+                                                        [name_to_id('user_credentials', 'user_id', 'username', _username),
+                                                         name_to_id('s3', 'bucket_id', 'name', bucket.name),
+                                                         f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'SELECT sub_version_id'), return_result = True)
+        if (0 in obj_sub_vers_ids or 1 in obj_sub_vers_ids):
+            return [max(obj_sub_vers_ids) + 1, vers_id_create()]
+        else:
+            return [1, vers_id_create()]
     else:
-        return 0
+        return [0, '']
 
 def etag_create():
     """Creates unique 32 character etag identifier"""
@@ -99,6 +110,17 @@ def etag_create():
         elif (num_or_Ll[0] == 2) and (num_or_Ll[1] == 1):
             sequence.append(random.randint(65, 90))
         elif (num_or_Ll[0] == 2) and (num_or_Ll[1] == 2):
+            sequence.append(random.randint(97, 122))
+    return ''.join([chr(x) for x in sequence])
+
+def vers_id_create():
+    """Creates unique 32 character version identifier"""
+    sequence = []
+    for i in range(32):
+        cap_or_low = random.randint(1, 2)
+        if cap_or_low == 1:
+            sequence.append(random.randint(65, 90))
+        elif cap_or_low == 2:
             sequence.append(random.randint(97, 122))
     return ''.join([chr(x) for x in sequence])
 
@@ -124,10 +146,12 @@ def persist_object(_bucket, username, object_name, object_path):
     bucket_id = name_to_id('s3', 'bucket_id', 'name', _bucket.name) #retrieve bucket_id from DB based off bucket name
     prepro_vals = [user_id, bucket_id]
     vals = []
+    version_vals = version_bucket(username, _bucket, object_name)
     new_object = s3_object( #instaniate s3_object and define values based on object information
         uri=f's3://{_bucket.name}/{object_name}',
         arn=f'arn:aws:s3:::{_bucket.name}/{object_name}',
-        version = version_bucket(_bucket),
+        sub_version_id = version_vals[0],
+        version_id = version_vals[1],
         etag= etag_create(),
         object_url = f'{object_path}{object_name}',
         owner = username,
@@ -152,8 +176,18 @@ def upload_object(_username, bucket, object_name):
     source = f"AWS/externalFiles/{object_name}"
     destination = f"AWS/users/{_username}/s3/{bucket.name}/"
     try: # attempt to find object name in externalFiles and move object to subdirectory. Afterwards, record object details in DB
-        shutil.move(source, destination)
-        persist_object(bucket, _username, object_name, destination)
+        shutil.copy(source, destination)
+        obj_exists = create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], 
+                                                        [name_to_id('user_credentials', 'user_id', 'username', _username),
+                                                         name_to_id('s3', 'bucket_id', 'name', bucket.name),
+                                                         f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'SELECT 1'), return_result = True)
+        if ((bucket.bucket_versioning and 1 in obj_exists) or obj_exists == []):
+            persist_object(bucket, _username, object_name, destination)
+        else:
+            create_db_connection(row_action('', ['user_id', 'bucket_id', 'arn'], 
+                                                [name_to_id('user_credentials', 'user_id', 'username', _username),
+                                                name_to_id('s3', 'bucket_id', 'name', bucket.name),
+                                                f"'arn:aws:s3:::{bucket.name}/{object_name}'"], f"UPDATE s3_bucket SET last_modified = '{datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None)}'", frm_keywrd=''))
     except: # if object is not found, throw error that object could not be found
         print(f'ERROR! No object under name "{object_name}" found! Please ensure object is in the "externalFiles" directory or ensure object name is spelled correctly!')
 
@@ -163,7 +197,7 @@ def delete_object(_username, bucket, object_name):
     destination = f"AWS/externalFiles/"
     try: # attempt to find object name in externalFiles and move object to subdirectory. Afterwards, record object details in DB
         shutil.move(source, destination)
-        create_db_connection(delete_row('s3_bucket', ['user_id', 'bucket_id', 'object_id'], [name_to_id('user_credentials', 'user_id', 'username', _username),
-        name_to_id('s3', 'bucket_id', 'name', bucket.name), name_to_id('s3_bucket', 'object_id', 'arn', f'arn:aws:s3:::{bucket.name}/{object_name}')]))
+        create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'object_id'], [name_to_id('user_credentials', 'user_id', 'username', _username),
+        name_to_id('s3', 'bucket_id', 'name', bucket.name), name_to_id('s3_bucket', 'object_id', 'arn', f'arn:aws:s3:::{bucket.name}/{object_name}')], 'DELETE'))
     except: # if object is not found, throw error that object could not be found
         print(f'ERROR! No object under name "{object_name}" found! Please ensure object exists in bucket {bucket.name} or ensure object name is spelled correctly!')
