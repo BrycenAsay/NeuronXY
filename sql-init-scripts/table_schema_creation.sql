@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS public.user_credentials
 (
     user_id SERIAL,
-    username character varying(25) COLLATE pg_catalog."default" NOT NULL,
+    username character varying(25) NOT NULL COLLATE pg_catalog."default" NOT NULL,
     password character varying(2000) COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT user_credentials_pkey PRIMARY KEY (user_id)
 );
@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS public.user_credentials
 CREATE TABLE IF NOT EXISTS public.s3
 (
     user_id integer NOT NULL,
-    bucket_id SERIAL,
-    name character varying(63) COLLATE pg_catalog."default",
+    bucket_id SERIAL PRIMARY KEY,
+    name character varying(63) NOT NULL COLLATE pg_catalog."default",
     arn character varying(200) COLLATE pg_catalog."default",
     bucket_type character varying(3) COLLATE pg_catalog."default",
     bucket_versioning boolean,
@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS public.s3
     encrypt_method character varying(8) COLLATE pg_catalog."default",
     bucket_policy jsonb,
     tags text[] COLLATE pg_catalog."default",
-    CONSTRAINT s3_pkey PRIMARY KEY (user_id, bucket_id),
+    object_replication boolean,
+    replication_bucket_id integer,
+    CONSTRAINT fk_replication FOREIGN KEY (replication_bucket_id) REFERENCES public.s3(bucket_id),
     CONSTRAINT fk_user FOREIGN KEY (user_id)
         REFERENCES public.user_credentials (user_id) MATCH SIMPLE
         ON UPDATE CASCADE
@@ -44,7 +46,7 @@ CREATE TABLE IF NOT EXISTS public.s3_bucket
 (
     user_id integer NOT NULL,
     bucket_id integer NOT NULL,
-    object_id SERIAL,
+    object_id SERIAL PRIMARY KEY,
     sub_version_id smallint,
     version_id character varying(32) COLLATE pg_catalog."default",
     uri character varying(200) COLLATE pg_catalog."default",
@@ -57,9 +59,8 @@ CREATE TABLE IF NOT EXISTS public.s3_bucket
     type character varying(8) COLLATE pg_catalog."default",
     storage_class character varying(40) COLLATE pg_catalog."default",
     tags text[] COLLATE pg_catalog."default",
-    CONSTRAINT s3_bucket_pkey PRIMARY KEY (user_id, bucket_id, object_id),
-    CONSTRAINT fk_bid FOREIGN KEY (user_id, bucket_id)
-        REFERENCES public.s3 (user_id, bucket_id) MATCH SIMPLE
+    CONSTRAINT fk_bid FOREIGN KEY (bucket_id)
+        REFERENCES public.s3 (bucket_id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     CONSTRAINT fk_uid FOREIGN KEY (user_id)
