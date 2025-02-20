@@ -30,19 +30,44 @@ def create_row(table_name, columns:list, data:list):
     query = text(f'INSERT INTO {table_name}({columns}) VALUES ({data});')
     return query
     
-def row_action(table_name, ids:list, values:list, action_type, frm_keywrd='FROM', group_state='', order_state='', limit_state=''):
+def row_action(table_name, ids:list, values:list, action_type, not_eq:list=[], frm_keywrd='FROM', group_state='', order_state='', limit_state=''):
     """Accepts a list of ids and correlated values with those ids to delete entires from a specified table"""
+    values = ['Null' if x is None else x for x in values]
+    ids = ['Null' if x is None else x for x in ids]
     where_id_eq_val = []
+    while len(not_eq) != len(values):
+        not_eq.append(False)
     for i in range(len(ids)):
-        if i == 0:
-            where_id_eq_val.append(f'WHERE {ids[i]} = {values[i]}')
+        if values[i] == 'Null':
+            no_eq_op = 'is not'
+            eq_op = 'is'
+        elif isinstance(values[i], list):
+            if len(values[i]) == 0:
+                continue
+            values[i] = f"({', '.join([f"'{val}'" if (isinstance(val, str) and val != 'Null') else val for val in values[i]])})"
+            no_eq_op = 'NOT IN'
+            eq_op = 'IN'
         else:
-            where_id_eq_val.append(f'AND {ids[i]} = {values[i]}')
+            no_eq_op = '!='
+            eq_op = '='
+        if i == 0:
+            if not_eq[i]:
+                where_id_eq_val.append(f'WHERE {ids[i]} {no_eq_op} {values[i]}')
+            else:
+                where_id_eq_val.append(f'WHERE {ids[i]} {eq_op} {values[i]}')
+        else:
+            if not_eq[i]:
+                where_id_eq_val.append(f'AND {ids[i]} {no_eq_op} {values[i]}')
+            else:
+                where_id_eq_val.append(f'AND {ids[i]} {eq_op} {values[i]}')
     return text(f'{action_type} {frm_keywrd} {table_name} {where_id_eq_val[0]} {' '.join(where_id_eq_val[1:len(where_id_eq_val)])} {group_state} {order_state} {limit_state}')
 
 def update_row(table_name, column, data, where_1, eq_value_1):
     """Updates row given one column equals one value. Must specify column and the associated value as part of the function parameters"""
-    query = text(f"UPDATE {table_name} SET {column} = '{data}' WHERE {where_1} = '{eq_value_1}'")
+    if (isinstance(data, int) or data == 'Null'):
+        query = text(f"UPDATE {table_name} SET {column} = {data} WHERE {where_1} = '{eq_value_1}'")
+    elif isinstance(data, str):
+        query = text(f"UPDATE {table_name} SET {column} = '{data}' WHERE {where_1} = '{eq_value_1}'")
     return query
 
 def update_row_dos_id(table_name, column, data, where_id1, eq_value_1, where_id2, eq_value_2):
@@ -60,9 +85,18 @@ def check_if_value_exists(table_name, column_name, value):
     query = text(f"SELECT 1 FROM {table_name} WHERE {column_name} = '{value}'")
     return query
 
-def name_to_id(table_name, id_column, name_column, name):
+def name_to_id(table_name, id_column, name_column, value, reversed:bool=False, one_result:bool=True):
     """Converts a name to a numerical ID. Unique INT ids exist for easier DB row management"""
+    if value == None:
+        value = 'Null'
     try:
-      return create_db_connection(text(f"SELECT {id_column} FROM {table_name} WHERE {name_column} = '{name}'"), return_result=True)[0]
+        if (reversed and one_result):
+            return create_db_connection(text(f"SELECT {name_column} FROM {table_name} WHERE {id_column} = {value}"), return_result=True)[0]
+        elif (not reversed and one_result):
+            return create_db_connection(text(f"SELECT {id_column} FROM {table_name} WHERE {name_column} = '{value}'"), return_result=True)[0]
+        elif (reversed and not one_result):
+            return create_db_connection(text(f"SELECT {name_column} FROM {table_name} WHERE {id_column} = {value}"), return_result=True)
+        else:
+            return create_db_connection(text(f"SELECT {id_column} FROM {table_name} WHERE {name_column} = '{value}'"), return_result=True)
     except:
       return 999999999
