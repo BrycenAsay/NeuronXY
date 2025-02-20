@@ -155,7 +155,7 @@ def persist_object(_bucket, username, object_name, object_path):
         etag= etag_create(),
         object_url = f'{object_path}{object_name}',
         owner = username,
-        last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
+        last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo='Null'),
         size = get_file_size_in_units(f'{object_path}{object_name}'),
         type = object_name.split('.')[1])
     for attribute in new_object.properties:
@@ -164,7 +164,10 @@ def persist_object(_bucket, username, object_name, object_path):
     # go through the unprocessed values, and change formating to postgres friendly as per value data type
     for val in prepro_vals:
         if ((isinstance(val, str)) or (isinstance(val, datetime))):
-            vals.append(f"'{str(val)}'")
+            if val != 'Null':
+                vals.append(f"'{str(val)}'")
+            else:
+                vals.append(val)
         elif isinstance(val, list):
             vals.append(f"ARRAY{val}::TEXT[]")
         else:
@@ -194,24 +197,24 @@ def upload_object(_username, bucket, object_name, perm_tag):
 def delete_object(_username, bucket, object_name, perm_tag:bool=False):
     """Removes object from DB and bucket directory"""
     source = f"AWS/users/{_username}/s3/{bucket.name}/{object_name}"
-    if (bucket.bucket_versioning and not perm_tag):
+    if (bucket.bucket_versioning and not perm_tag): # if bucket versioning is enabled and delete is not specified as permenent
         sub_version_ids = create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], 
                                                             [name_to_id('user_credentials', 'user_id', 'username', _username),
                                                             name_to_id('s3', 'bucket_id', 'name', bucket.name),
                                                             f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'SELECT object_id, sub_version_id, version_id', order_state='ORDER BY sub_version_id DESC'), multi_return=[True, 3])
-        if sub_version_ids[0] == []:
+        if sub_version_ids[0] == []: # if no results returned, object does not exist
             print(f'ERROR! No object under name "{object_name}" found! Please ensure object exists in bucket {bucket.name} or ensure object name is spelled correctly!')
-        elif (sub_version_ids[2][0] == 'delete-marker'):
+        elif (sub_version_ids[2][0] == 'delete-marker'): # if there is  delete marker and bucket is versioned, you must specifiy a permenanet delete for a delete to take place
             print(f'ERROR! Final object version already marked as deleted, please use the --perm tag or disable versioning if you wish to permenantly delete this object!')
-        elif sub_version_ids[1][0] == sub_version_ids[1][-1]:
+        elif sub_version_ids[1][0] == sub_version_ids[1][-1]: # this indicates that there is only the oldest version still avaliable in the DB. Update version to a delete-marker
             create_db_connection(row_action('', ['user_id', 'bucket_id', 'object_id'], 
                                                 [name_to_id('user_credentials', 'user_id', 'username', _username),
                                                 name_to_id('s3', 'bucket_id', 'name', bucket.name),
                                                 sub_version_ids[0][0]], f"UPDATE s3_bucket SET version_id = 'delete-marker'", frm_keywrd=''))
-        elif sub_version_ids[1][0] > sub_version_ids[1][-1]:
+        elif sub_version_ids[1][0] > sub_version_ids[1][-1]: # delete the latest version if there is more than one version of an object
             create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'object_id'], [name_to_id('user_credentials', 'user_id', 'username', _username),
             name_to_id('s3', 'bucket_id', 'name', bucket.name), sub_version_ids[0][0]], 'DELETE'))
-    else:
+    else: # perm delete or delete with bucket versioning disabled
         try: # attempt to find object name in externalFiles and move object to subdirectory. Afterwards, record object details in DB
             os.remove(source)
             create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], [name_to_id('user_credentials', 'user_id', 'username', _username),
