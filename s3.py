@@ -24,7 +24,7 @@ class s3_bucket:
     def __init__(self,
                  properties = ['name', 'arn', 'bucket_type', 'bucket_versioning', 'acl_enabled', 
                                'block_public_access', 'bucket_key', 'object_lock', 'encrypt_method',
-                               'bucket_policy', 'tags'],
+                               'bucket_policy', 'tags', 'object_replication', 'replication_bucket_id'],
                  name = '',
                  arn = '',
                  bucket_type = 'gp', 
@@ -35,7 +35,9 @@ class s3_bucket:
                  object_lock:bool=False,
                  encrypt_method='SSE-S3', 
                  bucket_policy=json.dumps({}), 
-                 tags=[]):
+                 tags=[],
+                 object_replication:bool=False,
+                 replication_bucket_id='Null'):
         self.properties = properties
         self.name = name
         self.arn = arn
@@ -48,6 +50,8 @@ class s3_bucket:
         self.encrypt_method = encrypt_method
         self.bucket_key = bucket_key
         self.object_lock = object_lock
+        self.object_replication = object_replication
+        self.replication_bucket_id = replication_bucket_id
 
     def set_bucket_properties(self, attr):
         """Allows a terminal user to set bucket properties by passing the attribute string as the attr argument"""
@@ -77,8 +81,11 @@ class s3_bucket:
             self.bucket_key = y_or_n_input(input('Would you like to create a bucket key? (Y/N)> '))
         if attr == 'object_lock':
             self.object_lock = y_or_n_input(input('Would you like to enable object lock? (Y/N)> '))
+        if attr == 'object_replication':
+            self.object_replication = y_or_n_input(input('Would you like to enable object replication? (Y/N)> '))
 
     def define_bucket_properties(self, attr, value):
+
         """Allows defining of bucket properties that are already known without prompting the user"""
         if attr == 'name':
             self.name = value
@@ -102,6 +109,10 @@ class s3_bucket:
             self.bucket_key = value
         if attr == 'object_lock':
             self.object_lock = value
+        if attr == 'object_replication':
+            self.object_replication = value
+        if attr == 'replication_bucket_id':
+            self.replication_bucket_id = value
         
     def get_bucket_properties(self, attr):
         """returns the current bucket property value for a given attribute"""
@@ -127,6 +138,10 @@ class s3_bucket:
             return self.bucket_key
         if attr == 'object_lock':
             return self.object_lock
+        if attr == 'object_replication':
+            return self.object_replication
+        if attr == 'replication_bucket_id':
+            return self.replication_bucket_id
 
     @staticmethod
     def validate_value(value, object_attr):
@@ -180,7 +195,10 @@ def upload_properties_to_db(bucket, _username):
     #ensure values are in Postgres friendly formating based on data type before being written to the SQL query
     for val in prepro_vals:
         if isinstance(val, str):
-            vals.append(f"'{str(val)}'")
+            if val != 'Null':
+                vals.append(f"'{str(val)}'")
+            else:
+                vals.append(val)
         elif isinstance(val, list):
             vals.append(f"ARRAY{val}::TEXT[]")
         else:
@@ -197,9 +215,10 @@ def update_bucket(_user_id, _bucket_id):
     for attribute in existing_bucket.properties: #pull bucket values from database and set s3_bucket attributes on exiting_bucket instance
         existing_bucket.define_bucket_properties(attribute, create_db_connection(text(f"SELECT {attribute} FROM s3 WHERE user_id = {_user_id} AND bucket_id = {_bucket_id}"), return_result=True)[0])
     
-    # give user updatable properties (removed name, this is immutable after the bucket gets created) and prompt for values to change until user types 'DONE'
-    updateable_properties = existing_bucket.properties
+    # give user updatable properties (removed name and replication_bucket_id, name is immutable after the bucket gets created and replication_bucket_id must go through a seperate validation process) and prompt for values to change until user types 'DONE'
+    updateable_properties = [x for x in existing_bucket.properties]
     updateable_properties.remove('name')
+    updateable_properties.remove('replication_bucket_id')
     print(f'Avaliable changeable properties: {','.join(updateable_properties)}\n')
     def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
     while def_pv_to_change != 'DONE':
@@ -207,12 +226,16 @@ def update_bucket(_user_id, _bucket_id):
             existing_bucket = set_vv_abap(existing_bucket, def_pv_to_change)
         print(f'Avaliable updateable properties: {','.join(updateable_properties)}\n')
         def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+    existing_bucket = bucket_replication(create_db_connection(text(f'SELECT username FROM user_credentials WHERE user_id = {_user_id}'), return_result=True)[0], existing_bucket, None)
 
     #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update bucket values
     for property in existing_bucket.properties:
         val = existing_bucket.get_bucket_properties(property)
         if isinstance(val, str):
-            val = f"'{str(val)}'"
+            if val != 'Null':
+                val = f"'{str(val)}'"
+            else:
+                val = val
         elif isinstance(val, list):
             val = f"ARRAY{val}::TEXT[]"
         else:
@@ -252,15 +275,20 @@ def mk_bucket(_username, bucket_name, transfer_func):
         print('ERROR! ENTER Y or N!')
         ow_def_set = input('Override default settings? (Y/N): ')
     if ow_def_set == 'Y': # allow user to override default settings before bucket creation, if desired
-        print(f'Avaliable changeable properties: {','.join(new_bucket.properties)}\n')
+        changeable_properties = [x for x in new_bucket.properties]
+        changeable_properties.remove('name')
+        changeable_properties.remove('replication_bucket_id')
+        print(f'Avaliable changeable properties: {','.join(changeable_properties)}\n')
         def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
         while def_pv_to_change != 'DONE': # if overriding default settings, continue to ask about setting changes until user types 'DONE'
             try:
+                changeable_properties.index(def_pv_to_change)
                 new_bucket = set_vv_abap(new_bucket, def_pv_to_change) # allow user to set attribute, if the bucket attribute exists
             except:
                 pass # if attribute does not exist and error thrown, simply ignore
-            print(f'Avaliable changeable properties: {','.join(new_bucket.properties)}\n')
+            print(f'Avaliable changeable properties: {','.join(changeable_properties)}\n')
             def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+    new_bucket = bucket_replication(_username, new_bucket, None)
     upload_properties_to_db(new_bucket, _username)
     create_s3_directory(_username, new_bucket)
 
@@ -278,11 +306,12 @@ def updt_bucket_ap(_username, bucket_name, transfer_func):
     update_bucket(create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)[0]
                  ,create_db_connection(text(f"SELECT bucket_id FROM s3 WHERE name = '{bucket_name}'"), return_result=True)[0])
 
-def ls_bucket(_username, bucket_name, transfer_func):
+def ls_bucket(_username, bucket_name, transfer_func, exclude_buckets:list=[]):
     """Lists all active buckets owned by the user"""
     user_id = create_db_connection(text(f"SELECT user_id from user_credentials WHERE username = '{_username}'"), return_result=True)[0]
     for bucket_name in create_db_connection(text(f"SELECT name FROM s3 WHERE user_id = {user_id}"), return_result=True):
-        print(f'{bucket_name}')
+        if bucket_name not in exclude_buckets:
+            print(f'{bucket_name}')
 
 def bucketSettings(_username, bucket_name, transfer_func):
     """Displays all settings/properties for a s3_bucket instance"""
@@ -290,5 +319,26 @@ def bucketSettings(_username, bucket_name, transfer_func):
     for property in dummy_bucket.properties:
         print(f'{property}')
 
-if __name__ == '__main__':
-    pass
+def bucket_replication(_username, bucket, transfer_func):
+    """If bucket replication is enabled, we must ensure that a valid replication bucket is selected, and that there is such a bucket to select"""
+    if bucket.object_replication:
+        if create_db_connection(row_action('s3', ['user_id', 'name', 'name'], [name_to_id('user_credentials', 'user_id', 'username', _username), name_to_id('s3', 'replication_bucket_id', 'name', name_to_id('s3', 'bucket_id', 'name', bucket.name), 
+                                                                                                                                                            reversed=True, one_result=False), f"'{bucket.name}'"], 
+                                                                                                                                                            'SELECT COUNT(*)', not_eq=[False, True, True], group_state='GROUP BY user_id'), return_result=True) in [[0], []]:
+            print('ERROR! You must have more than one bucket to enable object replication on this bucket! This bucket will either be created with object replication disabled, or will not have this option updated!')
+            bucket.define_bucket_properties('object_replication', False)
+            bucket.define_bucket_properties('replication_bucket_id', 'Null')
+        else:
+            ls_bucket_limit = [bucket.name] +  name_to_id('s3', 'replication_bucket_id', 'name', name_to_id('s3', 'bucket_id', 'name', bucket.name), reversed=True, one_result=False)
+            ls_bucket(_username, bucket.name, transfer_func, ls_bucket_limit)
+            rep_targ_buck = input('Please enter a target bucket for object replication into this bucket. Please note that this prompt will not quit until a valid bucket_name is specified: ')
+            while rep_targ_buck not in [bucket_name for bucket_name in create_db_connection(row_action('s3', ['user_id', 'name', 'bucket_id'], [name_to_id('user_credentials', 'user_id', 'username', _username), 
+            f"'{bucket.name}'", name_to_id('s3', 'replication_bucket_id', 'name', bucket.name)], action_type='SELECT name', not_eq=[False, True, True]), return_result=True)]:
+                ls_bucket(_username, bucket.name, transfer_func, ls_bucket_limit)
+                rep_targ_buck = input('Please enter a target bucket for object replication. Please note that this prompt will not quit until a valid bucket_name is specified: ')
+            bucket.define_bucket_properties('replication_bucket_id', create_db_connection(row_action('s3', ['user_id', 'name'], [name_to_id('user_credentials', 'user_id', 'username', _username), 
+                                                                                                                f"'{rep_targ_buck}'"], 'SELECT bucket_id'), return_result=True)[0])
+    else:
+        bucket.define_bucket_properties('object_replication', False)
+        bucket.define_bucket_properties('replication_bucket_id', 'Null')
+    return bucket
