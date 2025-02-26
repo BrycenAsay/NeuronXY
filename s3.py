@@ -1,5 +1,6 @@
 import json
 import shutil
+import logging
 import os
 from sql_helper import create_row, create_db_connection, row_action, update_row_dos_id, name_to_id
 from sqlalchemy import text
@@ -222,11 +223,14 @@ def update_bucket(_user_id, _bucket_id):
     print(f'Avaliable changeable properties: {','.join(updateable_properties)}\n')
     def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
     while def_pv_to_change != 'DONE':
+        if def_pv_to_change == 'object_replication' and existing_bucket.object_replication:
+            print('\nWARNING! Bucket replication is already enabled on this bucket! If you wish to update the target bucket for object replication, please disable and renable object replication. You can then change the object replication target bucket!\n')
         if def_pv_to_change in updateable_properties:
             existing_bucket = set_vv_abap(existing_bucket, def_pv_to_change)
         print(f'Avaliable updateable properties: {','.join(updateable_properties)}\n')
         def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
-    existing_bucket = bucket_replication(create_db_connection(text(f'SELECT username FROM user_credentials WHERE user_id = {_user_id}'), return_result=True)[0], existing_bucket, None)
+    if (existing_bucket.replication_bucket_id is None or existing_bucket.replication_bucket_id is not None and not existing_bucket.object_replication):
+        existing_bucket = bucket_replication(create_db_connection(text(f'SELECT username FROM user_credentials WHERE user_id = {_user_id}'), return_result=True)[0], existing_bucket, None)
 
     #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update bucket values
     for property in existing_bucket.properties:
@@ -321,7 +325,9 @@ def bucketSettings(_username, bucket_name, transfer_func):
 
 def bucket_replication(_username, bucket, transfer_func):
     """If bucket replication is enabled, we must ensure that a valid replication bucket is selected, and that there is such a bucket to select"""
-    if bucket.object_replication:
+    if bucket.object_replication and bucket.replication_bucket_id not in [None, 'Null']:
+        pass
+    elif bucket.object_replication:
         if create_db_connection(row_action('s3', ['user_id', 'name', 'name'], [name_to_id('user_credentials', 'user_id', 'username', _username), name_to_id('s3', 'replication_bucket_id', 'name', name_to_id('s3', 'bucket_id', 'name', bucket.name), 
                                                                                                                                                             reversed=True, one_result=False), f"'{bucket.name}'"], 
                                                                                                                                                             'SELECT COUNT(*)', not_eq=[False, True, True], group_state='GROUP BY user_id'), return_result=True) in [[0], []]:
@@ -332,8 +338,8 @@ def bucket_replication(_username, bucket, transfer_func):
             ls_bucket_limit = [bucket.name] +  name_to_id('s3', 'replication_bucket_id', 'name', name_to_id('s3', 'bucket_id', 'name', bucket.name), reversed=True, one_result=False)
             ls_bucket(_username, bucket.name, transfer_func, ls_bucket_limit)
             rep_targ_buck = input('Please enter a target bucket for object replication into this bucket. Please note that this prompt will not quit until a valid bucket_name is specified: ')
-            while rep_targ_buck not in [bucket_name for bucket_name in create_db_connection(row_action('s3', ['user_id', 'name', 'bucket_id'], [name_to_id('user_credentials', 'user_id', 'username', _username), 
-            f"'{bucket.name}'", name_to_id('s3', 'replication_bucket_id', 'name', bucket.name)], action_type='SELECT name', not_eq=[False, True, True]), return_result=True)]:
+            while (rep_targ_buck not in [bucket_name for bucket_name in create_db_connection(row_action('s3', ['user_id', 'name', 'bucket_id'], [name_to_id('user_credentials', 'user_id', 'username', _username), 
+            f"'{bucket.name}'", name_to_id('s3', 'replication_bucket_id', 'name', bucket.name)], action_type='SELECT name', not_eq=[False, True, True]), return_result=True)] or rep_targ_buck in ls_bucket_limit):
                 ls_bucket(_username, bucket.name, transfer_func, ls_bucket_limit)
                 rep_targ_buck = input('Please enter a target bucket for object replication. Please note that this prompt will not quit until a valid bucket_name is specified: ')
             bucket.define_bucket_properties('replication_bucket_id', create_db_connection(row_action('s3', ['user_id', 'name'], [name_to_id('user_credentials', 'user_id', 'username', _username), 
