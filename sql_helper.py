@@ -34,6 +34,7 @@ def row_action(table_name, ids:list, values:list, action_type, not_eq:list=[], f
     """Accepts a list of ids and correlated values with those ids to delete entires from a specified table"""
     values = ['Null' if x is None else x for x in values]
     ids = ['Null' if x is None else x for x in ids]
+    not_eq.clear()
     where_id_eq_val = []
     while len(not_eq) != len(values):
         not_eq.append(False)
