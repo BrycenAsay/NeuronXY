@@ -256,7 +256,7 @@ def create_s3_directory(_username, bucket):
     bucket_sub_path = f"AWS/users/{_username}/s3/{bucket.name}"
     os.makedirs(bucket_sub_path, exist_ok=True)
 
-def sel_bucket(_username, bucket_name, transfer_func):
+def sel_bucket(_username, bucket_name, transfer_func, override_transfer=False):
     """Allows user to select an existing created bucket"""
     try: #try to query database under username and bucket name combo and load into exiting_bucket instance
         user_id = name_to_id('user_credentials', 'user_id', 'username', _username)
@@ -265,7 +265,10 @@ def sel_bucket(_username, bucket_name, transfer_func):
         for attribute in existing_bucket.properties:
             existing_bucket.define_bucket_properties(attribute, create_db_connection(text(f"SELECT {attribute} FROM s3 WHERE user_id = {user_id} AND bucket_id = {bucket_id}"), return_result=True)[0])
         #pass username and bucket information to transfer function, which will transfer the user to the bucket specific terminal rather than staying in the s3 general terminal
-        transfer_func(_username, existing_bucket)
+        if not override_transfer:
+            transfer_func(_username, existing_bucket)
+        else:
+            return existing_bucket
     except: #if no bucket values are returned by the query, then an error will be thrown and we can inform the user that specified bucket was not found for the logged in user
         print(f'THERE IS NO BUCKET UNDER NAME {bucket_name} FOR USER {_username}!')
 

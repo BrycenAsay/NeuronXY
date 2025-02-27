@@ -4,6 +4,7 @@ import os
 import pytz
 import shutil
 from sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row
+from s3 import sel_bucket
 
 class s3_object:
     """s3 object object (yea I said object twice X), attributes for objects within a bucket currently include:
@@ -155,7 +156,7 @@ def persist_object(_bucket, username, object_name, object_path):
         etag= etag_create(),
         object_url = f'{object_path}{object_name}',
         owner = username,
-        last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo='Null'),
+        last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
         size = get_file_size_in_units(f'{object_path}{object_name}'),
         type = object_name.split('.')[1])
     for attribute in new_object.properties:
@@ -174,7 +175,13 @@ def persist_object(_bucket, username, object_name, object_path):
             vals.append(str(val))
     create_db_connection(create_row('s3_bucket', cols, vals))
 
-def upload_object(_username, bucket, object_name, perm_tag):
+def object_replication(_username, _bucket, _object_name, _perm_tag):
+    replicate_upload_to_bnm = create_db_connection(row_action('s3', ['replication_bucket_id'], [name_to_id('s3', 'bucket_id', 'name', _bucket.name)], action_type='SELECT name'), return_result=True)
+    for bname in replicate_upload_to_bnm:
+        bucket_rep_to = sel_bucket(_username, bname, None, True)
+        upload_object(_username, bucket_rep_to, _object_name, None, True)
+
+def upload_object(_username, bucket, object_name, perm_tag, replicate_process=False):
     """Uploads object from externalFiles folder into an s3 bucket and records details in the DB"""
     source = f"AWS/externalFiles/{object_name}"
     destination = f"AWS/users/{_username}/s3/{bucket.name}/"
@@ -186,6 +193,8 @@ def upload_object(_username, bucket, object_name, perm_tag):
                                                          f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'SELECT 1'), return_result = True)
         if ((bucket.bucket_versioning and 1 in obj_exists) or obj_exists == []):
             persist_object(bucket, _username, object_name, destination)
+            if not replicate_process:
+                object_replication(_username, bucket, object_name, None)
         else:
             create_db_connection(row_action('', ['user_id', 'bucket_id', 'arn'], 
                                                 [name_to_id('user_credentials', 'user_id', 'username', _username),
