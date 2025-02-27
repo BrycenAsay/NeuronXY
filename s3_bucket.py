@@ -176,6 +176,7 @@ def persist_object(_bucket, username, object_name, object_path):
     create_db_connection(create_row('s3_bucket', cols, vals))
 
 def object_replication(_username, _bucket, _object_name, _perm_tag):
+    """Replicates any objects that have the target from bucket specified as the bucket that got the object uploaded to it"""
     replicate_upload_to_bnm = create_db_connection(row_action('s3', ['replication_bucket_id'], [name_to_id('s3', 'bucket_id', 'name', _bucket.name)], action_type='SELECT name'), return_result=True)
     for bname in replicate_upload_to_bnm:
         bucket_rep_to = sel_bucket(_username, bname, None, True)
