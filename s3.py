@@ -85,64 +85,18 @@ class s3_bucket:
         if attr == 'object_replication':
             self.object_replication = y_or_n_input(input('Would you like to enable object replication? (Y/N)> '))
 
-    def define_bucket_properties(self, attr, value):
-
-        """Allows defining of bucket properties that are already known without prompting the user"""
-        if attr == 'name':
-            self.name = value
-        if attr == 'arn':
-            self.arn = value
-        if attr == 'block_public_access':
-            self.block_public_access = value
-        if attr == 'acl_enabled':
-            self.acl_enabled = value
-        if attr == 'bucket_policy':
-            self.bucket_policy = json.dumps(value)
-        if attr == 'bucket_type':
-            self.bucket_type = value
-        if attr == 'bucket_versioning':
-            self.bucket_versioning = value
-        if attr == 'tags':
-            self.tags = value
-        if attr == 'encrypt_method':
-            self.encrypt_method = value
-        if attr == 'bucket_key':
-            self.bucket_key = value
-        if attr == 'object_lock':
-            self.object_lock = value
-        if attr == 'object_replication':
-            self.object_replication = value
-        if attr == 'replication_bucket_id':
-            self.replication_bucket_id = value
+    def define_bucket_properties(self, attr_name, value):
+        if hasattr(self, attr_name):  # Ensure the attribute exists
+            setattr(self, attr_name, value)
+        else:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr_name}'")
         
-    def get_bucket_properties(self, attr):
+    def get_bucket_properties(self, attr_name):
         """returns the current bucket property value for a given attribute"""
-        if attr == 'name':
-            return self.name
-        if attr == 'arn':
-            return self.arn
-        if attr == 'block_public_access':
-            return self.block_public_access
-        if attr == 'acl_enabled':
-            return self.acl_enabled
-        if attr == 'bucket_policy':
-            return self.bucket_policy
-        if attr == 'bucket_type':
-            return self.bucket_type
-        if attr == 'bucket_versioning':
-            return self.bucket_versioning
-        if attr == 'tags':
-            return self.tags
-        if attr == 'encrypt_method':
-            return self.encrypt_method
-        if attr == 'bucket_key':
-            return self.bucket_key
-        if attr == 'object_lock':
-            return self.object_lock
-        if attr == 'object_replication':
-            return self.object_replication
-        if attr == 'replication_bucket_id':
-            return self.replication_bucket_id
+        if hasattr(self, attr_name):  # Ensure the attribute exists
+            return getattr(self, attr_name)
+        else:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr_name}'")
 
     @staticmethod
     def validate_value(value, object_attr):
@@ -235,7 +189,7 @@ def update_bucket(_user_id, _bucket_id):
     #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update bucket values
     for property in existing_bucket.properties:
         val = existing_bucket.get_bucket_properties(property)
-        if isinstance(val, str):
+        if isinstance(val, (str, dict)):
             if val != 'Null':
                 val = f"'{str(val)}'"
             else:
@@ -272,6 +226,23 @@ def sel_bucket(_username, bucket_name, transfer_func, override_transfer=False):
     except: #if no bucket values are returned by the query, then an error will be thrown and we can inform the user that specified bucket was not found for the logged in user
         print(f'THERE IS NO BUCKET UNDER NAME {bucket_name} FOR USER {_username}!')
 
+def override_defaults(bucket):
+    """Enters loop to override default values upon object instantiation"""
+    changeable_properties = [x for x in bucket.properties]
+    changeable_properties.remove('name')
+    changeable_properties.remove('replication_bucket_id')
+    print(f'Avaliable changeable properties: {','.join(changeable_properties)}\n')
+    def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+    while def_pv_to_change != 'DONE': # if overriding default settings, continue to ask about setting changes until user types 'DONE'
+        try:
+            changeable_properties.index(def_pv_to_change)
+            bucket = set_vv_abap(bucket, def_pv_to_change) # allow user to set attribute, if the bucket attribute exists
+        except:
+            pass # if attribute does not exist and error thrown, simply ignore
+        print(f'Avaliable changeable properties: {','.join(changeable_properties)}\n')
+        def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+    return bucket
+
 def mk_bucket(_username, bucket_name, transfer_func):
     """Creates a new s3 bucket, s3 bucket subdirectory within s3 directory, and persists information in DB"""
     new_bucket = s3_bucket() # create instance of s3_bucket object
@@ -282,19 +253,7 @@ def mk_bucket(_username, bucket_name, transfer_func):
         print('ERROR! ENTER Y or N!')
         ow_def_set = input('Override default settings? (Y/N): ')
     if ow_def_set == 'Y': # allow user to override default settings before bucket creation, if desired
-        changeable_properties = [x for x in new_bucket.properties]
-        changeable_properties.remove('name')
-        changeable_properties.remove('replication_bucket_id')
-        print(f'Avaliable changeable properties: {','.join(changeable_properties)}\n')
-        def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
-        while def_pv_to_change != 'DONE': # if overriding default settings, continue to ask about setting changes until user types 'DONE'
-            try:
-                changeable_properties.index(def_pv_to_change)
-                new_bucket = set_vv_abap(new_bucket, def_pv_to_change) # allow user to set attribute, if the bucket attribute exists
-            except:
-                pass # if attribute does not exist and error thrown, simply ignore
-            print(f'Avaliable changeable properties: {','.join(changeable_properties)}\n')
-            def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+        new_bucket = override_defaults(new_bucket)
     new_bucket = bucket_replication(_username, new_bucket, None)
     upload_properties_to_db(new_bucket, _username)
     create_s3_directory(_username, new_bucket)
