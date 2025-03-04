@@ -1,6 +1,6 @@
 from account_creation import create_creds, reset_password, aws_login, delete_user
 from s3 import sel_bucket, mk_bucket, del_bucket_ap, updt_bucket_ap, ls_bucket, bucketSettings
-from s3_bucket import upload_object, delete_object
+from s3_bucket import upload_object, delete_object, update_object
 import logging
 
 class terminal:
@@ -24,7 +24,7 @@ class terminal:
                                'login': 'Used to log into the AWS application',
                                'user': 'Used in combination with other commands to control users',
                                'create': 'Used as the create command',
-                               'bucket': 'Used in combination with otehr commands to control s3 buckets, typically you would perceed this keyword with the name of an existing bucket',
+                               'bucket': 'Used in combination with other commands to control s3 buckets, typically you would perceed this keyword with the name of an existing bucket',
                                '--perm': 'Permenanet tag, used to override any backup processes (not generally recommended)'},
                  cmds=None):
         self.cmds_help_dict = cmds_help_dict
@@ -102,6 +102,7 @@ class terminal:
         elif self.terminal_type == 's3_bucket':
             self.run_cmds({'-upld': upload_object,
                            '-del': delete_object,
+                           '-updt': update_object,
                            'cmd_tags': {'-del': ['--perm']}}, param_list)
 
 def dynamic_term_vals(terminal_type, _term_cmd_obj, _term_spec_parm): 
