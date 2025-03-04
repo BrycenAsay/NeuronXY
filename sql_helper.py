@@ -45,7 +45,7 @@ def row_action(table_name, ids:list, values:list, action_type, not_eq:list=[], f
         elif isinstance(values[i], list):
             if len(values[i]) == 0:
                 continue
-            values[i] = f"({', '.join([f"'{val}'" if (isinstance(val, str) and val != 'Null') else val for val in values[i]])})"
+            values[i] = f"({', '.join([f"'{val}'" if not (isinstance(val, (int, float, bool)) and val != 'Null') else val for val in values[i]])})"
             no_eq_op = 'NOT IN'
             eq_op = 'IN'
         else:
