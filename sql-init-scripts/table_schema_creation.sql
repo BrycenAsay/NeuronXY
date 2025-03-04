@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS public.s3_bucket
     etag character varying(32) COLLATE pg_catalog."default",
     object_url character varying(200) COLLATE pg_catalog."default",
     owner character varying(25) COLLATE pg_catalog."default",
+    creation_date timestamp without time zone,
     last_modified timestamp without time zone,
     size character varying(16) COLLATE pg_catalog."default",
     type character varying(8) COLLATE pg_catalog."default",
