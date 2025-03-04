@@ -22,14 +22,15 @@ class s3_object:
     tags: list of tags associated with the bucket
     """
     def __init__(self,
-                properties=['uri', 'arn', 'sub_version_id', 'version_id', 'etag', 'object_url', 'owner', 'last_modified', 'size', 'type', 'storage_class', 'tags'],
+                properties=['uri', 'arn', 'sub_version_id', 'version_id', 'etag', 'object_url', 'owner', 'creation_date', 'last_modified', 'size', 'type', 'storage_class', 'tags'],
                 uri='', 
                 arn='',
                 sub_version_id=0,
                 version_id='', 
                 etag='', 
                 object_url='', 
-                owner='', 
+                owner='',
+                creation_date='',
                 last_modified='', 
                 size='', 
                 type='', 
@@ -43,49 +44,53 @@ class s3_object:
         self.etag = etag
         self.object_url = object_url
         self.owner = owner
+        self.creation_date = creation_date
         self.last_modified = last_modified
         self.size = size
         self.type = type
         self.storage_class = storatge_class
         self.tags = tags.split(',')
         
-    def get_object_properties(self, attr):
-        """Returns properties of object given attribute in string form as a function parameter"""
-        if attr == 'uri':
-            return self.uri
-        if attr == 'arn':
-            return self.arn
-        if attr == 'sub_version_id':
-            return self.sub_version_id
-        if attr == 'version_id':
-            return self.version_id
-        if attr == 'etag':
-            return self.etag
-        if attr == 'object_url':
-            return self.object_url
-        if attr == 'owner':
-            return self.owner
-        if attr == 'last_modified':
-            return self.last_modified
-        if attr == 'size':
-            return self.size
-        if attr == 'type':
-            return self.type
+    def get_object_properties(self, attr_name):
+        """returns the current bucket property value for a given attribute"""
+        if hasattr(self, attr_name):  # Ensure the attribute exists
+            return getattr(self, attr_name)
+        else:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr_name}'")
+
+    def define_object_properties(self, attr_name, value):
+        if hasattr(self, attr_name):  # Ensure the attribute exists
+            setattr(self, attr_name, value)
+        else:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr_name}'")
+
+    def set_object_properties(self, attr):
+        """Allows overrding of default object properties (only used for storage class for now)"""
         if attr == 'storage_class':
-            return self.storage_class
+            storage_classes = ['standard', 'intelligent-tiering', 'standard-IA', 'one-zone-IA', 'glacier-instant-retrieval', 'glacier-flexible-retrieval', 'glacier-deep-archive']
+            print(f'{', '.join(storage_classes)}')
+            storage_class = input('Please enter a valid storage class for this object: ')
+            while storage_class not in storage_classes:
+                storage_class = input('Please enter a valid storage class for this object: ')
+            self.storage_class = storage_class
         if attr == 'tags':
-            return self.tags
+            tags = input('Please enter tags you want associated with the object, seperated by commas: ').split(',')
+            if '' in tags:
+                tags.remove('')
+            self.tags = tags
 
     @staticmethod
     def validate_value(value, object_attr):
         """Validates that the value being set for an attribute is valid where validation is needed, returns
         False where the validation criteria is not met"""
         if object_attr == 'storage_class':
-            if value not in ['standard']:
+            if value not in ['standard', 'intelligent-tiering', 'standard-IA', 'one-zone-IA', 'glacier-instant-retrieval', 'glacier-flexible-retrieval', 'glacier-deep-archive']:
                 print('ERROR! VALUE IS NOT VALID!')
                 return False
             else:
                 return True
+        else:
+            return True
 
 def version_bucket(_username, bucket, object_name):
     """Will version an object depending on the ordinal value of the object upload"""
@@ -139,7 +144,14 @@ def get_file_size_in_units(file_path):
     else:
         return f"{file_size_bytes / (1024 ** 3):.2f} GB"
 
-def persist_object(_bucket, username, object_name, object_path):
+def set_vv_abap(object, _attr):
+    """Sets and validates the attribute values for an object instance"""
+    object.set_object_properties(_attr)
+    while object.validate_value(object.get_object_properties(_attr), _attr) != True:
+        object.set_object_properties(_attr)
+    return object
+
+def persist_object(_bucket, username, object_name, object_path, non_replica=False):
     """Creates an instance of s3_object object, loads data according to the object uploaded, then after defining all
     object attributes, uploads those attributes to the DB"""
     cols = ['user_id', 'bucket_id']
@@ -156,9 +168,17 @@ def persist_object(_bucket, username, object_name, object_path):
         etag= etag_create(),
         object_url = f'{object_path}{object_name}',
         owner = username,
+        creation_date = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
         last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
         size = get_file_size_in_units(f'{object_path}{object_name}'),
         type = object_name.split('.')[1])
+    if non_replica:
+        override_defs = input('Override default settings? (Y/N): ')
+        while override_defs not in ['Y', 'N']:
+            print('ERROR! You must provide Y or N as an answer!')
+            override_defs = input('Override default settings? (Y/N): ')
+        if override_defs == 'Y':
+            new_object = override_defaults(new_object)
     for attribute in new_object.properties:
         cols.append(attribute) #columns to update in DB, matched with object attributes
         prepro_vals.append(new_object.get_object_properties(attribute)) #values to uploaded, pre postgres friendly translation
@@ -182,6 +202,42 @@ def object_replication(_username, _bucket, _object_name, _perm_tag):
         bucket_rep_to = sel_bucket(_username, bname, None, True)
         upload_object(_username, bucket_rep_to, _object_name, None, True)
 
+def override_defaults(object):
+    """Enters loop to override default values upon object instantiation"""
+    updateable_properties = ['storage_class', 'tags']
+    print(f'Avaliable changeable properties: {','.join(updateable_properties)}\n')
+    def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+    while def_pv_to_change != 'DONE':
+        if def_pv_to_change in updateable_properties:
+            object = set_vv_abap(object, def_pv_to_change)
+        print(f'Avaliable updateable properties: {','.join(updateable_properties)}\n')
+        def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
+    return object
+
+def update_object(_username, _bucket, _object_name, _perm_tag):
+    """allows for users to update existing s3 object settings (provided that they are overridable)"""
+    existing_object = s3_object() #instantiate s3_bucket instance
+    usr_buk_obj_ids = [name_to_id('user_credentials', 'user_id', 'username', _username), name_to_id('s3', 'bucket_id', 'name', _bucket.name), name_to_id('s3_bucket', 'object_id', 'arn', f'arn:aws:s3:::{_bucket.name}/{_object_name}')]
+    for attribute in existing_object.properties: #pull bucket values from database and set s3_bucket attributes on exiting_bucket instance
+        existing_object.define_object_properties(attribute, create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'object_id'], usr_buk_obj_ids, action_type=f'SELECT {attribute}'), return_result=True)[0])
+
+    # give user updatable properties and prompt for values to change until user types 'DONE'
+    existing_object = override_defaults(existing_object)
+
+    #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update object values
+    for property in existing_object.properties:
+        val = existing_object.get_bucket_properties(property)
+        if isinstance(val, str):
+            if val != 'Null':
+                val = f"'{str(val)}'"
+            else:
+                val = val
+        elif isinstance(val, list):
+            val = f"ARRAY{val}::TEXT[]"
+        else:
+            val = str(val)
+        create_db_connection(row_action('', ['user_id', 'bucket_id', 'object_id'], usr_buk_obj_ids, f'UPDATE s3_bucket SET {property} = {val}'))
+
 def upload_object(_username, bucket, object_name, perm_tag, replicate_process=False):
     """Uploads object from externalFiles folder into an s3 bucket and records details in the DB"""
     source = f"AWS/externalFiles/{object_name}"
@@ -193,9 +249,11 @@ def upload_object(_username, bucket, object_name, perm_tag, replicate_process=Fa
                                                          name_to_id('s3', 'bucket_id', 'name', bucket.name),
                                                          f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'SELECT 1'), return_result = True)
         if ((bucket.bucket_versioning and 1 in obj_exists) or obj_exists == []):
-            persist_object(bucket, _username, object_name, destination)
             if not replicate_process:
+                persist_object(bucket, _username, object_name, destination, True)
                 object_replication(_username, bucket, object_name, None)
+            else:
+                persist_object(bucket, _username, object_name, destination)
         else:
             create_db_connection(row_action('', ['user_id', 'bucket_id', 'arn'], 
                                                 [name_to_id('user_credentials', 'user_id', 'username', _username),
