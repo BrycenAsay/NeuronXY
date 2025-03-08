@@ -1,0 +1,1 @@
+* */1 * * * root PGPASSWORD=p1934rubvf-1938rfv-98sdyfgpeowquhfgvp[312908yut psql -h db -U admin -d awsmockdb -f /db/service_maintenance/lifecycle_transition.sql >> /app/logs/cron.log 2>&1; echo "Cron job finished with status $?" >> /app/logs/cron_stdout.log
