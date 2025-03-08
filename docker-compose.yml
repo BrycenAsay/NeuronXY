@@ -10,9 +10,11 @@ services:
       - "5434:5432"
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
-      - ./sql-init-scripts:/docker-entrypoint-initdb.d # Run DB initilization scripts
+      - ./db/sql-init-scripts:/docker-entrypoint-initdb.d # Run DB initilization scripts
   cli:
-    build: .
+    build:
+      context: ./app
+      dockerfile: Dockerfile
     volumes:
       - app_data:/app/AWS
     stdin_open: true
@@ -27,6 +29,16 @@ services:
       - POSTGRES_DB=awsmockdb
     depends_on:
       - db
+  cron-job:
+    build:
+      context: ./cron
+      dockerfile: Dockerfile
+    image: cron-contain
+    depends_on:
+      - db
+    restart: always
+    volumes:
+    - ./db:/db
 
 volumes:
   app_data:
