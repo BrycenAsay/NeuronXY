@@ -310,3 +310,66 @@ def bucket_replication(_username, bucket, transfer_func):
         bucket.define_bucket_properties('object_replication', False)
         bucket.define_bucket_properties('replication_bucket_id', 'Null')
     return bucket
+
+def lifecycle_rules(_username, bucket_name, transfer_func):
+    usr_id = str(name_to_id('user_credentials', 'user_id', 'username', _username))
+    buk_id = str(name_to_id('s3', 'bucket_id', 'name', bucket_name))
+    if buk_id == '999999999':
+        print(f'ERROR! Bucket {bucket_name} was not found for user {_username}! Please ensure you sepcify a valid bucket to add a lifecycle rule to!')
+        return
+    transition_to = []
+    days_till_transition = []
+    storage_classes = ['standard-IA', 'intelligent-tiering', 'one-zone-IA', 'glacier-instant-retrieval', 'glacier-flexible-retrieval', 'glacier-deep-archive']
+    create_add_to_rule = input('Would you like to create a lifecycle rule or add an additional transition rule? (Y/N): ')
+    while create_add_to_rule != 'N':
+        print(', '.join(storage_classes))
+        trans_class = input('Please enter a class to transition to, please note this will not exit until a class is specified: ')
+        while trans_class not in storage_classes:
+            print(', '.join(storage_classes))
+            trans_class = input('Please enter a class to transition to, please note this will not exit until a class is specified: ')
+        if trans_class == 'one-zone-IA':
+            storage_classes = storage_classes[storage_classes.index('glacier-instant-retrieval') + 1:len(storage_classes)]
+        else:
+            storage_classes = storage_classes[storage_classes.index(trans_class) + 1:len(storage_classes)]
+        
+        if transition_to == [] and trans_class in ['standard-IA', 'one-zone-IA']:
+            user_prompt = 'Please enter number of days until the transition takes place, please note it must be 30 days or greater: '
+            min_days = 29
+        elif transition_to == [] and trans_class not in ['standard-IA', 'one-zone-IA']:
+            user_prompt = 'Please enter number of days until the transition takes place, please note it must 1 day or greater: '
+            min_days = 0
+        elif transition_to[-1] in ['standard-IA', 'one-zone-IA']:
+            user_prompt = f'Please enter number of days until the transition takes place, please note it must 30 days or greater than than the transition to {transition_to[-1]} which was {str(days_till_transition[-1])} days: '
+            min_days = days_till_transition[-1] + 29
+        else:
+            user_prompt = f'Please enter number of days until the transition takes place, please note it must 1 day or greater than than the transition to {transition_to[-1]} which was {str(days_till_transition[-1])} days: '
+            min_days = days_till_transition[-1]
+
+        days_till_trans = input(user_prompt)
+        try:
+            days_till_trans = int(days_till_trans)
+        except:
+            days_till_trans = -1
+        while days_till_trans <= min_days:
+            days_till_trans = input(user_prompt)
+            try:
+                days_till_trans = int(days_till_trans)
+            except:
+                days_till_trans = -1
+        
+        transition_to.append(trans_class)
+        days_till_transition.append(days_till_trans)
+        if 'glacier-deep-archive' in transition_to:
+            create_add_to_rule = 'N'
+        else:
+            create_add_to_rule = input('Would you like to create a lifecycle rule or add an additional transition rule? (Y/N): ')
+    db_lifecycle_rule_def(usr_id, buk_id, transition_to, days_till_transition)
+
+def db_lifecycle_rule_def(user_id, bucket_id, trans_to, dt_trans):
+    create_db_connection(create_row('lifecycle_rule', ['user_id', 'bucket_id', 'rule_enabled'], [user_id, bucket_id, 'True']))
+    generated_lfcyc_id = str(create_db_connection(row_action('lifecycle_rule', ['user_id', 'bucket_id'], [user_id, bucket_id], 'SELECT lifecycle_id'), return_result=True)[0])
+    create_db_connection(row_action('', ['user_id', 'bucket_id'], [user_id, bucket_id], f'UPDATE s3 SET lifecycle_id = {generated_lfcyc_id}', frm_keywrd=''))
+    trans_to = [f"'{x}'" for x in trans_to]
+    dt_trans = [str(x) for x in dt_trans]
+    for i in range(len(trans_to)):
+        create_db_connection(create_row('lifecycle_transition', ['lifecycle_id', 'transition_to', 'days_till_transition'], [generated_lfcyc_id, trans_to[i], dt_trans[i]]))

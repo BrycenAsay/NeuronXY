@@ -69,3 +69,33 @@ CREATE TABLE IF NOT EXISTS public.s3_bucket
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS public.lifecycle_rule (
+    user_id integer NOT NULL,
+    bucket_id integer NOT NULL,
+    lifecycle_id SERIAL PRIMARY KEY,
+    rule_enabled boolean,
+    CONSTRAINT fk_bid FOREIGN KEY (bucket_id)
+        REFERENCES public.s3 (bucket_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_uid FOREIGN KEY (user_id)
+        REFERENCES public.user_credentials (user_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+ALTER TABLE s3 
+ADD COLUMN lifecycle_id integer,
+ADD CONSTRAINT fk_lfid FOREIGN KEY (lifecycle_id) REFERENCES lifecycle_rule(lifecycle_id);
+
+CREATE TABLE IF NOT EXISTS public.lifecycle_transition (
+    lifecycle_id integer NOT NULL,
+    transition_id SERIAL PRIMARY KEY,
+    transition_to character varying(40) COLLATE pg_catalog."default",
+    days_till_transition smallint,
+    CONSTRAINT fk_parent FOREIGN KEY (lifecycle_id)
+        REFERENCES public.lifecycle_rule (lifecycle_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);

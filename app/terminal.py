@@ -1,5 +1,5 @@
 from account_creation import create_creds, reset_password, aws_login, delete_user
-from s3 import sel_bucket, mk_bucket, del_bucket_ap, updt_bucket_ap, ls_bucket, bucketSettings
+from s3 import sel_bucket, mk_bucket, del_bucket_ap, updt_bucket_ap, ls_bucket, bucketSettings, lifecycle_rules
 from s3_bucket import upload_object, delete_object, update_object
 import logging
 
@@ -25,7 +25,9 @@ class terminal:
                                'user': 'Used in combination with other commands to control users',
                                'create': 'Used as the create command',
                                'bucket': 'Used in combination with other commands to control s3 buckets, typically you would perceed this keyword with the name of an existing bucket',
-                               '--perm': 'Permenanet tag, used to override any backup processes (not generally recommended)'},
+                               'lifecycle_rule': 'Used in combination with the -add and -updt commands to add and update lifecycle rules for buckets',
+                               '--perm': 'Permenanet tag, used to override any backup processes (not generally recommended)',
+                               '-add': 'Used to add properties to an object that by default does not get created with said properties'},
                  cmds=None):
         self.cmds_help_dict = cmds_help_dict
         self.terminal_type = terminal_type
@@ -97,6 +99,7 @@ class terminal:
                            '-mk': {'bucket': mk_bucket},
                            '-del': {'bucket': del_bucket_ap},
                            '-updt': {'bucket': updt_bucket_ap},
+                           '-add': {'lifecycle-rule': lifecycle_rules},
                            '-ls': {'bucket': ls_bucket},
                            'bucket_settings': bucketSettings}, param_list)
         elif self.terminal_type == 's3_bucket':
