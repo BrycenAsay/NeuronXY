@@ -11,6 +11,9 @@ services:
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
       - ./db/sql-init-scripts:/docker-entrypoint-initdb.d # Run DB initilization scripts
+    networks:
+      - default_network
+
   cli:
     build:
       context: ./app
@@ -29,6 +32,10 @@ services:
       - POSTGRES_DB=awsmockdb
     depends_on:
       - db
+      - namenode1
+    networks:
+      - default_network
+
   cron-job:
     build:
       context: ./cron
@@ -39,6 +46,236 @@ services:
     restart: always
     volumes:
     - ./db:/db
+    networks:
+      - default_network
+  
+  journalnode1:
+    image: hadoop-env
+    container_name: journalnode1
+    hostname: journalnode1
+    environment:
+      - HADOOP_ROLE=journalnode
+    volumes:
+      - hadoop_journalnode1:/hadoopdata/journalnode  # Local directory for JournalNode1
+    ports:
+      - "8485:8485"  # JournalNode RPC port
+      - "8480:8480"  # JournalNode HTTP UI port
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8480/jmx"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default_network
+  
+  journalnode2:
+    image: hadoop-env
+    container_name: journalnode2
+    hostname: journalnode2
+    environment:
+      - HADOOP_ROLE=journalnode
+    volumes:
+      - hadoop_journalnode2:/hadoopdata/journalnode  # Local directory for JournalNode1
+    ports:
+      - "8486:8485"  # JournalNode RPC port
+      - "8479:8480"  # JournalNode HTTP UI port
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8480/jmx"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default_network
+  
+  journalnode3:
+    image: hadoop-env
+    container_name: journalnode3
+    hostname: journalnode3
+    environment:
+      - HADOOP_ROLE=journalnode
+    volumes:
+      - hadoop_journalnode3:/hadoopdata/journalnode  # Local directory for JournalNode1
+    ports:
+      - "8487:8485"  # JournalNode RPC port
+      - "8478:8480"  # JournalNode HTTP UI port
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8480/jmx"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default_network
+  
+  zookeeper1:
+    image: hadoop-env
+    container_name: zookeeper1
+    hostname: zookeeper1
+    environment:
+      - HADOOP_ROLE=zookeeper
+      - ZOOKEEPERNODEINSTANCE=1
+    volumes:
+      - hadoop_zookeeper1:/hadoopdata/zookeeper  # If you're mounting config files
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "/opt/zookeeper/bin/zkServer.sh", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default_network
+  
+  zookeeper2:
+    image: hadoop-env
+    container_name: zookeeper2
+    hostname: zookeeper2
+    environment:
+      - HADOOP_ROLE=zookeeper
+      - ZOOKEEPERNODEINSTANCE=2
+    volumes:
+      - hadoop_zookeeper2:/hadoopdata/zookeeper  # If you're mounting config files
+    ports:
+      - "2182:2181"
+    healthcheck:
+      test: ["CMD", "/opt/zookeeper/bin/zkServer.sh", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default_network
+  
+  zookeeper3:
+    image: hadoop-env
+    container_name: zookeeper3
+    hostname: zookeeper3
+    environment:
+      - HADOOP_ROLE=zookeeper
+      - ZOOKEEPERNODEINSTANCE=3
+    volumes:
+      - hadoop_zookeeper3:/hadoopdata/zookeeper  # If you're mounting config files
+    ports:
+      - "2183:2181"
+    healthcheck:
+      test: ["CMD", "/opt/zookeeper/bin/zkServer.sh", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default_network
+  
+  namenode1:
+    image: hadoop-env
+    container_name: namenode1
+    hostname: namenode1
+    environment:
+      - HADOOP_ROLE=namenode
+    volumes:
+      - hadoop_namenode1:/hadoopdata/namenode  # If you're mounting config files
+      - hadoop_zkfc_init:/hadoopdata/zkfc/formatted
+    ports:
+      - "9870:9870"  # Expose ports if necessary
+      - "8020:8020"
+    depends_on:
+      journalnode1:
+        condition: service_healthy
+      journalnode2:
+        condition: service_healthy
+      journalnode3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870/jmx"]  # Check if HTTP UI is up
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default_network
+  
+  namenode2:
+    image: hadoop-env
+    container_name: namenode2
+    hostname: namenode2
+    environment:
+      - HADOOP_ROLE=standbynamenode
+    volumes:
+      - hadoop_namenode2:/hadoopdata/namenode # If you're mounting config files
+    ports:
+      - "9871:9870"  # Expose ports if necessary
+      - "8021:8020"
+    depends_on:
+      journalnode1:
+        condition: service_healthy
+      journalnode2:
+        condition: service_healthy
+      journalnode3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870/jmx"]  # Check if HTTP UI is up
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default_network
+  
+  datanode1:
+    image: hadoop-env
+    container_name: datanode1
+    environment:
+      - HADOOP_ROLE=datanode
+    volumes:
+      - hadoop_datanode1:/hadoopdata/datanode
+    depends_on:
+      namenode1:
+        condition: service_healthy
+      namenode2:
+        condition: service_healthy
+    networks:
+      - default_network
+  
+  datanode2:
+    image: hadoop-env
+    container_name: datanode2
+    environment:
+      - HADOOP_ROLE=datanode
+    volumes:
+      - hadoop_datanode2:/hadoopdata/datanode
+    depends_on:
+      namenode1:
+        condition: service_healthy
+      namenode2:
+        condition: service_healthy
+    networks:
+      - default_network
+  
+  datanode3:
+    image: hadoop-env
+    container_name: datanode3
+    environment:
+      - HADOOP_ROLE=datanode
+    volumes:
+      - hadoop_datanode3:/hadoopdata/datanode
+    depends_on:
+      namenode1:
+        condition: service_healthy
+      namenode2:
+        condition: service_healthy
+    networks:
+      - default_network
 
 volumes:
   app_data:
+  hadoop_zkfc_init:  
+  hadoop_journalnode1:  
+  hadoop_journalnode2:  
+  hadoop_journalnode3:  
+  hadoop_zookeeper1:  
+  hadoop_zookeeper2:  
+  hadoop_zookeeper3:  
+  hadoop_namenode1:  
+  hadoop_namenode2:  
+  hadoop_datanode1:  
+  hadoop_datanode2:  
+  hadoop_datanode3:
+
+networks:
+  default_network:
+    driver: bridge
