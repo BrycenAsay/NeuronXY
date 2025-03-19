@@ -1,5 +1,5 @@
-# AWS Mockup CLI Project
-This project contains code for a working mock up CLI for AWS (please note these 'services' do not actual work nor have full functionality and are only meant as rough simulations of the same service as it relates to AWS)
+# NeuronXY Project
+This project contains code for an on prem, mostly automated solution for big data processing and data lakes/warehouses (please note the functionality of the services varies as development is still very much happening). It started as a mockup for AWS services but now is evolving to use open source solutions such as Docker and Hadoop to actually provide not just a simulated AWS environment but actual big data solutions
 
 ### config.py File and it's Contents
 The config file contains the db information in order to connect to the database, here are the following parameters that should be specified:
@@ -15,7 +15,19 @@ The config file contains the db information in order to connect to the database,
   - externalFiles
 
 ### Notes on Dockercompose File
-Upon running the default dockercompose file provided with this project, two containers should be generated, a Postgres container and the actual application container, as well as a local volume mounted to your local drive in the project repository for Postgres information and a docker native volume to host user directory level information called "app_data." For terminal entry, you may either run docker-compose run cli which will automatically execute the entry point "main.py" script for this project or you can use the prompt for the cli-1 container and type "python main.py" as the executable command to access the actual application. From there, the application and all related features will be accessible from the CLI. 
+Upon running the default dockercompose file provided with this project, you will see the following containers:
+- One default CLI app container
+- One Postgres DB for metadata handling
+- A cron container for scheduled jobs running on Postgres
+- HDFS HA ecosystem which by default includes:
+   - 2 Name Nodes
+   - 3 Data Nodes
+   - 3 Journal Nodes
+   - 3 Zookeeper Nodes
+
+**Note on HDFS environment:** There is a file provided called "generate_docker_compose.py." **If you find that your HDFS environment needs more nodes for data storage or higher failover/avaliability,** this script will largely help to refactor the docker-compose file to scale according to your needs, including adding docker mounts to each component of the HDFS HA arcitecture. **Please note that scaling the docker-file may require manual configuration of the hdfs-site file, or the actual docker image used for creating the HDFS services,** I would love to make it so no manual intervention is needed when scaling up but that is still a work in progress! I am just one guy so please be patient with me :/ **No you cannot scale down from the autoconfigured settings for the default HDFS ecosystem,** if this is desired you may autoconfigure the files provided in this project as you wish to fit your needs :)
+
+**Note on terminal entry:** For terminal entry, you may either run docker-compose run cli which will automatically execute the entry point "main.py" script for this project or you can use the prompt for the cli-1 container and type "python main.py" as the executable command to access the actual application. From there, the application and all related features will be accessible from the CLI. 
 
 ### Terminal Helper Commands
 To get started with terminal commands, you can use one of two terminal helper commands:
