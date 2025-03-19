@@ -3,6 +3,7 @@ import shutil
 import logging
 import os
 from sql_helper import create_row, create_db_connection, row_action, update_row_dos_id, name_to_id
+from hadoop_helper import create_hdfs_direcotry, delete_hdfs_direcotry
 from sqlalchemy import text
 
 y_or_n_input = lambda x: True if x == 'Y' else False # returns true if value is 'Y' (yes) otherwise defaults to False
@@ -202,13 +203,11 @@ def update_bucket(_user_id, _bucket_id):
 
 def create_s3_directory(_username, bucket):
     """Creates an s3 directory if it does not yet exist and bucket subdirectory within that directory for the logged in user"""
-    s3_sub_path = f"AWS/users/{_username}/s3"
+    cortex_path = f"{_username}/cortex/{bucket.name}"
     try:
-        os.makedirs(s3_sub_path, exist_ok=False)
-    except:
-        pass
-    bucket_sub_path = f"AWS/users/{_username}/s3/{bucket.name}"
-    os.makedirs(bucket_sub_path, exist_ok=True)
+        create_hdfs_direcotry(cortex_path)
+    except Exception as e:
+        print(f'{e}')
 
 def sel_bucket(_username, bucket_name, transfer_func, override_transfer=False):
     """Allows user to select an existing created bucket"""
@@ -263,7 +262,7 @@ def del_bucket_ap(_username, bucket_name, transfer_func):
     try:
         remove_bucket_db_dir(create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)[0]
                             ,create_db_connection(text(f"SELECT bucket_id FROM s3 WHERE name = '{bucket_name}'"), return_result=True)[0])
-        shutil.rmtree(f"AWS/users/{_username}/s3/{bucket_name}")
+        delete_hdfs_direcotry(f"{_username}/cortex/{bucket_name}")
     except:
         print(f'A VALID BUCKET NAME FOR THIS USER MUST BE SPECIFIED! BUCKET DELETE UNSUCCESSFUL!')
 
