@@ -1,9 +1,12 @@
 from datetime import datetime
+import logging
+logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
 import random
 import os
 import pytz
 import shutil
 from sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row
+from hadoop_helper import delete_hdfs_file, upload_hdfs_file
 from s3 import sel_bucket
 
 class s3_object:
@@ -166,11 +169,11 @@ def persist_object(_bucket, username, object_name, object_path, non_replica=Fals
         sub_version_id = version_vals[0],
         version_id = version_vals[1],
         etag= etag_create(),
-        object_url = f'{object_path}{object_name}',
+        object_url = f'{object_path}',
         owner = username,
         creation_date = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
         last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
-        size = get_file_size_in_units(f'{object_path}{object_name}'),
+        size = get_file_size_in_units(f'{object_path}'),
         type = object_name.split('.')[1])
     if non_replica:
         override_defs = input('Override default settings? (Y/N): ')
@@ -241,30 +244,31 @@ def update_object(_username, _bucket, _object_name, _perm_tag):
 def upload_object(_username, bucket, object_name, perm_tag, replicate_process=False):
     """Uploads object from externalFiles folder into an s3 bucket and records details in the DB"""
     source = f"AWS/externalFiles/{object_name}"
-    destination = f"AWS/users/{_username}/s3/{bucket.name}/"
+    destination = f"{_username}/cortex/{bucket.name}/{object_name}"
     try: # attempt to find object name in externalFiles and move object to subdirectory. Afterwards, record object details in DB
-        shutil.copy(source, destination)
+        upload_hdfs_file(source, destination)
         obj_exists = create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], 
                                                         [name_to_id('user_credentials', 'user_id', 'username', _username),
                                                          name_to_id('s3', 'bucket_id', 'name', bucket.name),
                                                          f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'SELECT 1'), return_result = True)
         if ((bucket.bucket_versioning and 1 in obj_exists) or obj_exists == []):
             if not replicate_process:
-                persist_object(bucket, _username, object_name, destination, True)
+                persist_object(bucket, _username, object_name, source, True)
                 object_replication(_username, bucket, object_name, None)
             else:
-                persist_object(bucket, _username, object_name, destination)
+                persist_object(bucket, _username, object_name, source)
         else:
             create_db_connection(row_action('', ['user_id', 'bucket_id', 'arn'], 
                                                 [name_to_id('user_credentials', 'user_id', 'username', _username),
                                                 name_to_id('s3', 'bucket_id', 'name', bucket.name),
                                                 f"'arn:aws:s3:::{bucket.name}/{object_name}'"], f"UPDATE s3_bucket SET last_modified = '{datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None)}'", frm_keywrd=''))
-    except: # if object is not found, throw error that object could not be found
+    except Exception as e: # if object is not found, throw error that object could not be found
+        logging.error(f'An error occured', exc_info=True)
         print(f'ERROR! No object under name "{object_name}" found! Please ensure object is in the "externalFiles" directory or ensure object name is spelled correctly!')
 
 def delete_object(_username, bucket, object_name, perm_tag:bool=False):
     """Removes object from DB and bucket directory"""
-    source = f"AWS/users/{_username}/s3/{bucket.name}/{object_name}"
+    source = f"{_username}/cortex/{bucket.name}/{object_name}"
     if (bucket.bucket_versioning and not perm_tag): # if bucket versioning is enabled and delete is not specified as permenent
         sub_version_ids = create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], 
                                                             [name_to_id('user_credentials', 'user_id', 'username', _username),
@@ -284,7 +288,7 @@ def delete_object(_username, bucket, object_name, perm_tag:bool=False):
             name_to_id('s3', 'bucket_id', 'name', bucket.name), sub_version_ids[0][0]], 'DELETE'))
     else: # perm delete or delete with bucket versioning disabled
         try: # attempt to find object name in externalFiles and move object to subdirectory. Afterwards, record object details in DB
-            os.remove(source)
+            delete_hdfs_file(source)
             create_db_connection(row_action('s3_bucket', ['user_id', 'bucket_id', 'arn'], [name_to_id('user_credentials', 'user_id', 'username', _username),
             name_to_id('s3', 'bucket_id', 'name', bucket.name), f"'arn:aws:s3:::{bucket.name}/{object_name}'"], 'DELETE'))
         except: # if object is not found, throw error that object could not be found
