@@ -10,49 +10,49 @@ CREATE TABLE IF NOT EXISTS public.user_credentials
     CONSTRAINT user_credentials_pkey PRIMARY KEY (user_id)
 );
 
--- Table: public.s3
+-- Table: public.cortex
 
--- DROP TABLE IF EXISTS public.s3;
+-- DROP TABLE IF EXISTS public.cortex;
 
-CREATE TABLE IF NOT EXISTS public.s3
+CREATE TABLE IF NOT EXISTS public.cortex
 (
     user_id integer NOT NULL,
-    bucket_id SERIAL PRIMARY KEY,
+    node_id SERIAL PRIMARY KEY,
     name character varying(63) NOT NULL COLLATE pg_catalog."default",
-    arn character varying(200) COLLATE pg_catalog."default",
-    bucket_type character varying(3) COLLATE pg_catalog."default",
-    bucket_versioning boolean,
+    nrn character varying(200) COLLATE pg_catalog."default",
+    node_type character varying(3) COLLATE pg_catalog."default",
+    node_versioning boolean,
     acl_enabled boolean,
     block_public_access boolean,
-    bucket_key boolean,
-    object_lock boolean,
-    encrypt_method character varying(8) COLLATE pg_catalog."default",
-    bucket_policy jsonb,
+    node_key boolean,
+    file_lock boolean,
+    encrypt_method character varying(16) COLLATE pg_catalog."default",
+    node_policy jsonb,
     tags text[] COLLATE pg_catalog."default",
-    object_replication boolean,
-    replication_bucket_id integer,
-    CONSTRAINT fk_replication FOREIGN KEY (replication_bucket_id) REFERENCES public.s3(bucket_id),
+    file_replication boolean,
+    replication_node_id integer,
+    CONSTRAINT fk_replication FOREIGN KEY (replication_node_id) REFERENCES public.cortex(node_id),
     CONSTRAINT fk_user FOREIGN KEY (user_id)
         REFERENCES public.user_credentials (user_id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
 
--- Table: public.s3_bucket
+-- Table: public.cortex_node
 
--- DROP TABLE IF EXISTS public.s3_bucket;
+-- DROP TABLE IF EXISTS public.cortex_node;
 
-CREATE TABLE IF NOT EXISTS public.s3_bucket
+CREATE TABLE IF NOT EXISTS public.cortex_node
 (
     user_id integer NOT NULL,
-    bucket_id integer NOT NULL,
-    object_id SERIAL PRIMARY KEY,
+    node_id integer NOT NULL,
+    file_id SERIAL PRIMARY KEY,
     sub_version_id smallint,
     version_id character varying(32) COLLATE pg_catalog."default",
     uri character varying(200) COLLATE pg_catalog."default",
-    arn character varying(200) COLLATE pg_catalog."default",
+    nrn character varying(200) COLLATE pg_catalog."default",
     etag character varying(32) COLLATE pg_catalog."default",
-    object_url character varying(200) COLLATE pg_catalog."default",
+    file_url character varying(200) COLLATE pg_catalog."default",
     owner character varying(25) COLLATE pg_catalog."default",
     creation_date timestamp without time zone,
     last_modified timestamp without time zone,
@@ -60,8 +60,8 @@ CREATE TABLE IF NOT EXISTS public.s3_bucket
     type character varying(8) COLLATE pg_catalog."default",
     storage_class character varying(40) COLLATE pg_catalog."default",
     tags text[] COLLATE pg_catalog."default",
-    CONSTRAINT fk_bid FOREIGN KEY (bucket_id)
-        REFERENCES public.s3 (bucket_id) MATCH SIMPLE
+    CONSTRAINT fk_bid FOREIGN KEY (node_id)
+        REFERENCES public.cortex (node_id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     CONSTRAINT fk_uid FOREIGN KEY (user_id)
@@ -72,11 +72,11 @@ CREATE TABLE IF NOT EXISTS public.s3_bucket
 
 CREATE TABLE IF NOT EXISTS public.lifecycle_rule (
     user_id integer NOT NULL,
-    bucket_id integer NOT NULL,
+    node_id integer NOT NULL,
     lifecycle_id SERIAL PRIMARY KEY,
     rule_enabled boolean,
-    CONSTRAINT fk_bid FOREIGN KEY (bucket_id)
-        REFERENCES public.s3 (bucket_id) MATCH SIMPLE
+    CONSTRAINT fk_bid FOREIGN KEY (node_id)
+        REFERENCES public.cortex (node_id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     CONSTRAINT fk_uid FOREIGN KEY (user_id)
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS public.lifecycle_rule (
         ON DELETE CASCADE
 );
 
-ALTER TABLE s3 
+ALTER TABLE cortex 
 ADD COLUMN lifecycle_id integer,
 ADD CONSTRAINT fk_lfid FOREIGN KEY (lifecycle_id) REFERENCES lifecycle_rule(lifecycle_id);
 

@@ -40,9 +40,9 @@ def salt_pass(_username, _password, post_salt='', clear_slt_file=False):
     clear_slt_file: if reseting a password, pass True so that file is cleared and new salt instruction code can be written"""
     salted_pass = []
     if clear_slt_file: #clears contents of secretSalt file if resetting password
-        user_sub_path = f"AWS/users/{_username}"
-        ss_sub_path = f"AWS/users/{_username}/SecretSalt"
-        salt_file_path = os.path.join('AWS', 'users', _username, 'SecretSalt', f'secretSalt_{_username}.txt')
+        user_sub_path = f"NeuronXY/users/{_username}"
+        ss_sub_path = f"NeuronXY/users/{_username}/SecretSalt"
+        salt_file_path = os.path.join('NeuronXY', 'users', _username, 'SecretSalt', f'secretSalt_{_username}.txt')
         with open(salt_file_path, 'w') as f:
             pass
     
@@ -70,11 +70,11 @@ def salt_pass(_username, _password, post_salt='', clear_slt_file=False):
         confuse_nums_merge.append(''.join([str(x) for x in four_intervals_o_salt['num_confuse_ap']]))
         confuse_nums_merge.append(''.join([str(x) for x in four_intervals_o_salt['num_confuse_len']]))
         salt_instruct.append(''.join(confuse_nums_merge))
-        user_sub_path = f"AWS/users/{_username}"
+        user_sub_path = f"NeuronXY/users/{_username}"
         os.makedirs(user_sub_path, exist_ok=True)
-        ss_sub_path = f"AWS/users/{_username}/SecretSalt"
+        ss_sub_path = f"NeuronXY/users/{_username}/SecretSalt"
         os.makedirs(ss_sub_path, exist_ok=True)
-        salt_file_path = os.path.join('AWS', 'users', _username, 'SecretSalt', f'secretSalt_{_username}.txt')
+        salt_file_path = os.path.join('NeuronXY', 'users', _username, 'SecretSalt', f'secretSalt_{_username}.txt')
         with open(salt_file_path, 'w') as f:
             f.write('!'.join(salt_instruct)) #write salting instructions to user saltFile, with an '!' between each instruction
 
@@ -140,7 +140,7 @@ def delete_user(unused_param):
         confirm_delete = input('Type CONFIRM to proceed with user and resource deletion: ')
         if confirm_delete == 'CONFIRM': # if delete is confirmed, remove entry from user credentials (this should cascade and delete any rows in related tables for this user) and remove user subdirectory
             create_db_connection(row_action('user_credentials', ['user_id'], [name_to_id('user_credentials', 'user_id', 'username', username)], 'DELETE'))
-            shutil.rmtree(f"AWS/users/{username}")
+            shutil.rmtree(f"NeuronXY/users/{username}")
             print(f'User {username} and any related resources have successfully been deleted')
     else: # otherwise, return False and login not successful
         print('ERROR: The user/password combination was not found!')
@@ -169,7 +169,7 @@ def verify_login():
         print('EITHER YOUR USERNAME OR PASSWORD WAS NOT VALID MATE!')
         return [False, username]
 
-def aws_login(transfer_func):
+def neuronXY_login(transfer_func):
     """Entry point into account level terminal if successful login, verifies login and then passes necessary information 
     to the terminal transfer function (transfer_func parameter) defined in terminal.py, in this case the terminal will be 'acct'"""
     valid_login = verify_login()
