@@ -1,7 +1,0 @@
-/AWS
-/app/config.py
-/app/test.py
-/__pycache__
-/postgres_data
-/cron/crontab
-/app/__pycache__
