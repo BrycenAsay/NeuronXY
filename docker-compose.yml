@@ -5,7 +5,7 @@ services:
       POSTGRES_HOST: db
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: p1934rubvf-1938rfv-98sdyfgpeowquhfgvp[312908yut
-      POSTGRES_DB: awsmockdb
+      POSTGRES_DB: neuronmockdb
     ports:
       - "5434:5432"
     volumes:
@@ -19,17 +19,17 @@ services:
       context: ./app
       dockerfile: Dockerfile
     volumes:
-      - app_data:/app/AWS
+      - app_data:/app/NeuronXY
     stdin_open: true
     tty: true
     command: ["bash", "-c", "python main.py; exec bash"]
-    image: aws-mockup-cli
+    image: neuronxy
     environment:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=p1934rubvf-1938rfv-98sdyfgpeowquhfgvp[312908yut
-      - POSTGRES_DB=awsmockdb
+      - POSTGRES_DB=neuronmockdb
     depends_on:
       - db
       - namenode1

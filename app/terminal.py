@@ -1,6 +1,6 @@
-from account_creation import create_creds, reset_password, aws_login, delete_user
-from s3 import sel_bucket, mk_bucket, del_bucket_ap, updt_bucket_ap, ls_bucket, bucketSettings, lifecycle_rules
-from s3_bucket import upload_object, delete_object, update_object
+from account_creation import create_creds, reset_password, neuronXY_login, delete_user
+from cortex import sel_node, mk_node, del_node_ap, updt_node_ap, ls_node, nodeSettings, lifecycle_rules
+from cortex_node import upload_file, delete_file, update_file
 import logging
 
 class terminal:
@@ -16,18 +16,18 @@ class terminal:
                                '-del': 'Used as the delete command',
                                '-updt': 'Used as the update command',
                                '-ls': 'Used as the list command',
-                               'bucket_settings': 'Provides a list of settings that are set on an s3 bucket',
+                               'node_settings': 'Provides a list of settings that are set on an cortex node',
                                '-upld': 'Used as the upload command',
                                'password': 'Used in comibnation with a command to make changes to a password',
-                               's3': 'A simple storage service using s3 buckets and bucket objects',
-                               'aws': 'The very first keyword used to access the application in combination with other commands',
-                               'login': 'Used to log into the AWS application',
+                               'cortex': 'A simple storage service using cortex nodes and node files',
+                               'neuronXY': 'The very first keyword used to access the application in combination with other commands',
+                               'login': 'Used to log into the NeuronXY application',
                                'user': 'Used in combination with other commands to control users',
                                'create': 'Used as the create command',
-                               'bucket': 'Used in combination with other commands to control s3 buckets, typically you would perceed this keyword with the name of an existing bucket',
-                               'lifecycle_rule': 'Used in combination with the -add and -updt commands to add and update lifecycle rules for buckets',
+                               'node': 'Used in combination with other commands to control cortex nodes, typically you would perceed this keyword with the name of an existing node',
+                               'lifecycle_rule': 'Used in combination with the -add and -updt commands to add and update lifecycle rules for nodes',
                                '--perm': 'Permenanet tag, used to override any backup processes (not generally recommended)',
-                               '-add': 'Used to add properties to an object that by default does not get created with said properties'},
+                               '-add': 'Used to add properties to an file that by default does not get created with said properties'},
                  cmds=None):
         self.cmds_help_dict = cmds_help_dict
         self.terminal_type = terminal_type
@@ -88,31 +88,31 @@ class terminal:
     def term_spec_cmds(self, param_list:list=[]): 
         """command heirchey specified by terminal"""
         if self.terminal_type == 'ap':
-            self.run_cmds({'aws': {'login': aws_login, 
+            self.run_cmds({'neuronXY': {'login': neuronXY_login, 
                                    'create': {'user': create_creds},
                                    '-del': {'user': delete_user}}}, param_list)
         elif self.terminal_type == 'acct':
             self.run_cmds({'-res': {'password': reset_password}, 
-                           '-srv': {'s3': s3_def_terminal}}, param_list)
-        elif self.terminal_type == 's3':
-            self.run_cmds({'-sel': {'bucket': sel_bucket},
-                           '-mk': {'bucket': mk_bucket},
-                           '-del': {'bucket': del_bucket_ap},
-                           '-updt': {'bucket': updt_bucket_ap},
+                           '-srv': {'cortex': cortex_def_terminal}}, param_list)
+        elif self.terminal_type == 'cortex':
+            self.run_cmds({'-sel': {'node': sel_node},
+                           '-mk': {'node': mk_node},
+                           '-del': {'node': del_node_ap},
+                           '-updt': {'node': updt_node_ap},
                            '-add': {'lifecycle-rule': lifecycle_rules},
-                           '-ls': {'bucket': ls_bucket},
-                           'bucket_settings': bucketSettings}, param_list)
-        elif self.terminal_type == 's3_bucket':
-            self.run_cmds({'-upld': upload_object,
-                           '-del': delete_object,
-                           '-updt': update_object,
+                           '-ls': {'node': ls_node},
+                           'node_settings': nodeSettings}, param_list)
+        elif self.terminal_type == 'cortex_node':
+            self.run_cmds({'-upld': upload_file,
+                           '-del': delete_file,
+                           '-updt': update_file,
                            'cmd_tags': {'-del': ['--perm']}}, param_list)
 
 def dynamic_term_vals(terminal_type, _term_cmd_obj, _term_spec_parm): 
-    """function that sets dynamic cmd line arguments into the terminal instance (ex: name of a bucket or bucket object)"""
-    if terminal_type == 's3':
+    """function that sets dynamic cmd line arguments into the terminal instance (ex: name of a node or node file)"""
+    if terminal_type == 'cortex':
         _term_spec_parm[1] = _term_cmd_obj.get_commands(2)
-    elif terminal_type == 's3_bucket':
+    elif terminal_type == 'cortex_node':
         _term_spec_parm[2] = _term_cmd_obj.get_commands(-1)
         if _term_cmd_obj.get_commands(1) == '--perm':
             _term_spec_parm[3] = True
@@ -131,35 +131,35 @@ def terminal_entry(_terminal_type, cmd_str, term_spec_parm:list=[]):
 
 def ap_level_main():
     """allows access into the application access point command line"""
-    prompt_command = input(f'AWS> ')
+    prompt_command = input(f'NeuronXY> ')
     while prompt_command != 'quit':
         terminal_entry('ap', prompt_command, [acct_level_main])
-        prompt_command = input(f'AWS> ')
+        prompt_command = input(f'NeuronXY> ')
     quit()
 
 def acct_level_main(_username):
     """allows access into the  account level access point command line"""
-    prompt_command = input(f'AWS\\uers\\{_username}> ')
+    prompt_command = input(f'NeuronXY\\uers\\{_username}> ')
     while prompt_command != 'logout':
         terminal_entry('acct', prompt_command, [_username])
-        prompt_command = input(f'AWS\\uers\\{_username}> ')
+        prompt_command = input(f'NeuronXY\\uers\\{_username}> ')
     ap_level_main()
 
-def s3_def_terminal(_username):
-    """allows access into the s3 command line for a logged in user"""
-    prompt_command = input(f'AWS\\uers\\{_username}\\s3> ')
+def cortex_def_terminal(_username):
+    """allows access into the cortex command line for a logged in user"""
+    prompt_command = input(f'NeuronXY\\uers\\{_username}\\cortex> ')
     while prompt_command != 'exit':
-        terminal_entry('s3', prompt_command, [_username, None, s3_bucket_terminal])
-        prompt_command = input(f'AWS\\uers\\{_username}\\s3> ')
+        terminal_entry('cortex', prompt_command, [_username, None, cortex_node_terminal])
+        prompt_command = input(f'NeuronXY\\uers\\{_username}\\cortex> ')
     acct_level_main(_username)
 
-def s3_bucket_terminal(_username, bucket):
-    """allows access into the s3 bucket command line for a logged in user and specified existing user bucket"""
-    prompt_command = input(f'AWS\\users\\{_username}\\s3\\{bucket.name}> ')
+def cortex_node_terminal(_username, node):
+    """allows access into the cortex node command line for a logged in user and specified existing user node"""
+    prompt_command = input(f'NeuronXY\\users\\{_username}\\cortex\\{node.name}> ')
     while prompt_command != 'exit':
-        terminal_entry('s3_bucket', prompt_command, [_username, bucket, None, False])
-        prompt_command = input(f'AWS\\users\\{_username}\\s3\\{bucket.name}> ')
-    s3_def_terminal(_username)
+        terminal_entry('cortex_node', prompt_command, [_username, node, None, False])
+        prompt_command = input(f'NeuronXY\\users\\{_username}\\cortex\\{node.name}> ')
+    cortex_def_terminal(_username)
 
 if __name__ == '__main__':
     ap_level_main()
