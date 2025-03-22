@@ -32,7 +32,7 @@ def write_to_file(docker_compose_filepath, text_to_write):
     with open(docker_compose_filepath, 'a') as f:
         f.write(text_to_write)
 
-def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nodes:int=3, num_namenodes:int=2, num_datanodes:int=3):
+def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nodes:int=3, num_namenodes:int=2, num_datanodes:int=3, num_nodemanagers:int=3):
     """Used for dynamic changes to docker-file configs, i.e. a user may want 6 data nodes instead of 3 depending on their needs, etc"""
     pass_validation = validation_node_vals([num_journal_nodes, num_zk_nodes, num_namenodes, num_datanodes], ['journal_node', 'zookeeper_node', 'namenode', 'datanode'])
     if not pass_validation[0]:
@@ -45,7 +45,7 @@ def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nod
       POSTGRES_HOST: db
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: p1934rubvf-1938rfv-98sdyfgpeowquhfgvp[312908yut
-      POSTGRES_DB: awsmockdb
+      POSTGRES_DB: neuronmockdb
     ports:
       - "5434:5432"
     volumes:
@@ -59,17 +59,17 @@ def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nod
       context: ./app
       dockerfile: Dockerfile
     volumes:
-      - app_data:/app/AWS
+      - app_data:/app/NeuronXY
     stdin_open: true
     tty: true
     command: ["bash", "-c", "python main.py; exec bash"]
-    image: aws-mockup-cli
+    image: neuronxy
     environment:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD={db_password}
-      - POSTGRES_DB=awsmockdb
+      - POSTGRES_DB=neuronmockdb
     depends_on:
       - db
       - namenode1
@@ -211,11 +211,70 @@ def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nod
     networks:
       - default_network""")
 
+    write_to_file('docker-compose.yml', f"""
+
+  resourcemanager:
+    image: hadoop-env
+    tty: true
+    container_name: resourcemanager
+    hostname: resourcemanager
+    environment:
+      - HADOOP_ROLE=resourcemanager
+    volumes:
+      - yarn_resourcemanager:/hadoopdata/resourcemanager
+    ports:
+      - "8088:8088"  # Expose ports if necessary
+      - "8030:8030"
+      - "8031:8031"
+      - "8032:8032"
+      - "8033:8033"
+    depends_on:
+      namenode1:
+        condition: service_healthy
+      namenode2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - default_network""")
+
+    for i in range(1, num_nodemanagers + 1):
+      write_to_file('docker-compose.yml', f"""
+
+  nodemanager{i}:
+    image: hadoop-env
+    tty: true
+    container_name: nodemanager{i}
+    environment:
+      - HADOOP_ROLE=nodemanager
+    volumes:
+      - yarn_nodemanager{i}:/hadoopdata/resourcemanager
+    ports:
+      - "{str(8042 + (i - 1))}:8042" # Expose ports if necessary
+    depends_on:
+      namenode1:
+        condition: service_healthy
+      namenode2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8042/node"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - default_network""")
+
     write_to_file('docker-compose.yml',"""
 
 volumes:
   app_data:
-  hadoop_zkfc_init:""")
+  hadoop_zkfc_init:
+  yarn_resourcemanager:""")
 
     for i in range(1, num_journal_nodes + 1):
       write_to_file('docker-compose.yml',f"""  
@@ -232,6 +291,10 @@ volumes:
     for i in range(1, num_datanodes + 1):
       write_to_file('docker-compose.yml',f"""  
   hadoop_datanode{i}:""")
+      
+    for i in range(1, num_nodemanagers + 1):
+      write_to_file('docker-compose.yml',f"""  
+  yarn_nodemanager{i}:""")
 
     write_to_file('docker-compose.yml', f"""
 
