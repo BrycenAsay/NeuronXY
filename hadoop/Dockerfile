@@ -16,12 +16,13 @@ ENV ZOOKEEPER_SERVERS="zookeeper1","zookeeper2","zookeeper3"
 # Copy the Hadoop configuration files into the container
 COPY core-site.xml $HADOOP_HOME/etc/hadoop/core-site.xml
 COPY hdfs-site.xml $HADOOP_HOME/etc/hadoop/hdfs-site.xml
+COPY yarn-site.xml $HADOOP_HOME/etc/hadoop/yarn-site.xml
 
 # Switch back to root
 USER root
 
 # Expose ports
-EXPOSE 9870 9864 8088 19888 8020 9867 8032 8042
+EXPOSE 9870 9864 8088 19888 8020 9867 8032 8042 8088 8030 8031 8033
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
