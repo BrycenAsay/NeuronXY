@@ -156,4 +156,16 @@ EOF
     echo "Starting ZooKeeper..."
     exec "$ZKSERVER_SCRIPT" start-foreground
     ;;
+
+  resourcemanager)
+    echo "Starting ResourceManager..."
+    # Start the DataNode in the foreground to keep the container running
+    $HADOOP_HOME/bin/yarn resourcemanager
+    ;;
+
+  nodemanager)
+    echo "Starting NodeManager..."
+    # Start the DataNode in the foreground to keep the container running
+    $HADOOP_HOME/bin/yarn nodemanager
+    ;;    
 esac
