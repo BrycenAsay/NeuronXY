@@ -1,0 +1,17 @@
+<configuration>
+
+<!-- Resource Node Setup-->
+<property><name>yarn.resourcemanager.hostname</name><value>resourcemanager</value></property>
+<property><name>yarn.resourcemanager.webapp.address</name><value>${yarn.resourcemanager.hostname}:8088</value></property>
+<property><name>yarn.resourcemanager.address</name><value>${yarn.resourcemanager.hostname}:8032</value></property>
+<property><name>yarn.resourcemanager.scheduler.address</name><value>${yarn.resourcemanager.hostname}:8030</value></property>
+<property><name>yarn.resourcemanager.resource-tracker.address</name><value>${yarn.resourcemanager.hostname}:8031</value></property>
+<property><name>yarn.resourcemanager.admin.address</name><value>${yarn.resourcemanager.hostname}:8033</value></property>
+<property><name>yarn.resourcemanager.scheduler.class</name><value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler</value></property>
+
+<!-- Node Manager Setup-->
+<property><name>yarn.nodemanager.log-dirs</name><value>/hadoopdata/nodemanager/logs</value></property>
+<property><name>yarn.nodemanager.remote-app-log-dir</name><value>/hadoopdata/namenode</value></property>
+<property><name>yarn.nodemanager.remote-app-log-dir-suffix</name><value>ndmng_logs</value></property>
+
+</configuration>
