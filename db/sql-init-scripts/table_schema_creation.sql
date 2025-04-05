@@ -1,7 +1,3 @@
--- Table: public.user_credentials
-
--- DROP TABLE IF EXISTS public.user_credentials;
-
 CREATE TABLE IF NOT EXISTS public.user_credentials
 (
     user_id SERIAL,
@@ -9,10 +5,6 @@ CREATE TABLE IF NOT EXISTS public.user_credentials
     password character varying(2000) COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT user_credentials_pkey PRIMARY KEY (user_id)
 );
-
--- Table: public.cortex
-
--- DROP TABLE IF EXISTS public.cortex;
 
 CREATE TABLE IF NOT EXISTS public.cortex
 (
@@ -37,10 +29,6 @@ CREATE TABLE IF NOT EXISTS public.cortex
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
-
--- Table: public.cortex_node
-
--- DROP TABLE IF EXISTS public.cortex_node;
 
 CREATE TABLE IF NOT EXISTS public.cortex_node
 (
@@ -98,4 +86,19 @@ CREATE TABLE IF NOT EXISTS public.lifecycle_transition (
         REFERENCES public.lifecycle_rule (lifecycle_id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public.synapse (
+    synapse_id SERIAL PRIMARY KEY,
+    name character varying(50) COLLATE pg_catalog."default",
+    in_srv_type character varying(20) COLLATE pg_catalog."default",
+    in_srv_id smallint,
+    srv_trig_type character varying(8) COLLATE pg_catalog."default",
+    srv_trig_resource character varying(16) COLLATE pg_catalog."default",
+    out_srv_type character varying(20) COLLATE pg_catalog."default",
+    out_srv_id smallint,
+    src_file character varying(100) COLLATE pg_catalog."default",
+    timeout numeric(4,0),
+    enabled boolean,
+    CONSTRAINT synapse_timeout_check CHECK (timeout <= 1500::numeric)
 );
