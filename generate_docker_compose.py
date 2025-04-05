@@ -1,10 +1,11 @@
 from app.config import PASSWORD
 
 def validation_node_vals(numbers:list, nodetypes:list):
+    """Validates the number of nodes being init for the project. Please note that while you can override the validation process by changing the code, it is not recommended!"""
     for i in range(len(nodetypes)):
       # Check if the number is positive
       if numbers[i] <= 0:
-          return [False, 'The number of nodes may not be negitive, docker-compose formatting failed']
+          return [False, 'The number of nodes may not be negitive or zero, docker-compose formatting failed']
       
       if nodetypes[i] in ['journal_node', 'zookeeper_node']:
       # Check if the number is odd (to avoid split votes)
@@ -23,17 +24,13 @@ def validation_node_vals(numbers:list, nodetypes:list):
     # All positive odd numbers >= 3 are valid
     return [True, 'Values look good!']
 
-def process_documentation(doc):
-    """Process the provided documentation string."""
-    # Do something with the documentation
-    return len(doc.split())
-
 def write_to_file(docker_compose_filepath, text_to_write):
+    """appends text to the docker-compose file"""
     with open(docker_compose_filepath, 'a') as f:
         f.write(text_to_write)
 
 def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nodes:int=3, num_namenodes:int=2, num_datanodes:int=3, num_nodemanagers:int=3):
-    """Used for dynamic changes to docker-file configs, i.e. a user may want 6 data nodes instead of 3 depending on their needs, etc"""
+    """Used for dynamic changes to docker-compose configs, i.e. a user may want 6 data nodes instead of 3 depending on their needs, etc"""
     pass_validation = validation_node_vals([num_journal_nodes, num_zk_nodes, num_namenodes, num_datanodes], ['journal_node', 'zookeeper_node', 'namenode', 'datanode'])
     if not pass_validation[0]:
       print(pass_validation[1])
