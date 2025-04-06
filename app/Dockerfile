@@ -12,6 +12,9 @@ RUN apt-get update && \
     tar \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy initial data
+COPY ./NeuronXY /app
+
 # Set JAVA_HOME and add Java to PATH
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH=$JAVA_HOME/bin:$PATH
