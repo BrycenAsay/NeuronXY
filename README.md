@@ -10,7 +10,7 @@ The config file contains the db information in order to connect to the database,
 - PASSWORD = os.getenv('PASSWORD')
 
 ### Needed Empty Directory and Subdirectory Structure
-- AWS
+- NeuronXY
   - users
   - externalFiles
 
