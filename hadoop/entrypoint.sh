@@ -32,20 +32,20 @@ case $HADOOP_ROLE in
     else
       echo "NameNode is already formatted. Skipping formatting."
     fi
-    
+
     # Create a mock nice command to prevent priority errors
     echo '#!/bin/bash
     exit 0' > /bin/nice.new
     chmod +x /bin/nice.new
     mv /bin/nice.new /bin/nice
-    
+
     # Start the NameNode first
     $HADOOP_HOME/bin/hdfs --daemon start namenode
-    
-    # Then start ZKFC 
+
+    # Then start ZKFC
     echo "Starting Zookeeper Failover Controller (ZKFC)..."
     $HADOOP_HOME/bin/hdfs --daemon start zkfc
-    
+
     # Keep container running with a simple loop
     echo "Services started. Keeping container alive..."
     while true; do
@@ -62,20 +62,20 @@ case $HADOOP_ROLE in
     exit 0' > /bin/nice.new
     chmod +x /bin/nice.new
     mv /bin/nice.new /bin/nice
-    
+
     echo "Starting Standby NameNode..."
     # Bootstrap the Standby NameNode if needed
     if [ ! -f /hadoopdata/namenode/current/VERSION ]; then
       $HADOOP_HOME/bin/hdfs namenode -bootstrapStandby -force
     fi
-    
+
     # Start the standby namenode
     $HADOOP_HOME/bin/hdfs --daemon start namenode
-    
+
     # Start ZKFC after namenode
     echo "Starting Zookeeper Failover Controller (ZKFC)..."
     $HADOOP_HOME/bin/hdfs --daemon start zkfc
-    
+
     # Keep container running with a simple loop
     echo "Services started. Keeping container alive..."
     while true; do
@@ -106,20 +106,20 @@ case $HADOOP_ROLE in
     ZOOKEEPER_DATA_DIR="/hadoopdata/zookeeper"
     ZOOKEEPER_CONF_DIR="${ZOOKEEPER_INSTALL_DIR}/conf"
     ZOOKEEPER_MYID="${ZOOKEEPERNODEINSTANCE:-1}"  # Default to 1 if not set
-    
+
     # Check if required directories exist and create them if needed
     if [ ! -d "$ZOOKEEPER_INSTALL_DIR" ]; then
         echo "ERROR: ZooKeeper installation directory not found at $ZOOKEEPER_INSTALL_DIR"
         exit 1
     fi
-    
+
     # Ensure directories exist and are writeable
     mkdir -p "$ZOOKEEPER_DATA_DIR" || { echo "Failed to create data directory: $ZOOKEEPER_DATA_DIR"; exit 1; }
     mkdir -p "$ZOOKEEPER_CONF_DIR" || { echo "Failed to create conf directory: $ZOOKEEPER_CONF_DIR"; exit 1; }
 
     # Create the myid file
     echo "$ZOOKEEPER_MYID" > "$ZOOKEEPER_DATA_DIR/myid"
-    
+
     # Create zoo.cfg with explicit paths (no variable substitution)
     echo "Creating zoo.cfg at $ZOOKEEPER_CONF_DIR/zoo.cfg"
     cat > "$ZOOKEEPER_CONF_DIR/zoo.cfg" << EOF
@@ -139,7 +139,7 @@ EOF
         ls -la "$ZOOKEEPER_CONF_DIR/"
         exit 1
     fi
-    
+
     echo "Contents of zoo.cfg:"
     cat "$ZOOKEEPER_CONF_DIR/zoo.cfg"
 
@@ -149,10 +149,10 @@ EOF
         echo "ERROR: zkServer.sh not found at $ZKSERVER_SCRIPT"
         exit 1
     fi
-    
+
     # Make sure the script is executable
     chmod +x "$ZKSERVER_SCRIPT"
-    
+
     echo "Starting ZooKeeper..."
     exec "$ZKSERVER_SCRIPT" start-foreground
     ;;
@@ -167,5 +167,5 @@ EOF
     echo "Starting NodeManager..."
     # Start the DataNode in the foreground to keep the container running
     $HADOOP_HOME/bin/yarn nodemanager
-    ;;    
+    ;;
 esac
