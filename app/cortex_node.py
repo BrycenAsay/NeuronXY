@@ -149,9 +149,9 @@ def get_file_size_in_units(file_path):
 
 def set_vv_abap(file, _attr):
     """Sets and validates the attribute values for an file instance"""
-    cortex_file.set_file_properties(_attr)
-    while cortex_file.validate_value(cortex_file.get_file_properties(_attr), _attr) != True:
-        cortex_file.set_file_properties(_attr)
+    file.set_file_properties(_attr)
+    while file.validate_value(file.get_file_properties(_attr), _attr) != True:
+        file.set_file_properties(_attr)
     return file
 
 def persist_file(_node, username, file_name, file_path, non_replica=False):
