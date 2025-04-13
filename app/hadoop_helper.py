@@ -1,4 +1,8 @@
 from pyarrow.fs import HadoopFileSystem
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pandas as pd
+import io
 
 def create_hdfs_direcotry(full_path):
     paths = full_path.split('/') 
@@ -33,3 +37,19 @@ def upload_hdfs_file(local_file_path, hdfs_dest_path):
     with open(local_file_path, 'rb') as local_file:
         with hdfs.open_output_stream(hdfs_dest_path) as hdfs_file:
             hdfs_file.write(local_file.read())
+
+def read_hdfs_file(hdfs_file_path, file_type):
+    hdfs = HadoopFileSystem.from_uri("hdfs://mycluster")
+    if file_type == 'pq':
+        table = pq.read_table(hdfs_file_path, filesystem=hdfs)
+        final_df = table.to_pandas()
+    try:
+        with hdfs.open_input_file(hdfs_file_path) as hdfs_file:
+            content = hdfs_file.read_all()
+            if file_type == 'csv':
+                final_df = pd.read_csv(io.BytesIO(content))
+            elif file_type == 'xlsx':
+                final_df = pd.read_excel(io.BytesIO(content))
+        return final_df
+    except:
+        pass
