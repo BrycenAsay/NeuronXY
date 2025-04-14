@@ -3,7 +3,7 @@ import shutil
 import logging
 import os
 from sql_helper import create_row, create_db_connection, row_action, update_row_dos_id, name_to_id
-from hadoop_helper import create_hdfs_direcotry, delete_hdfs_direcotry
+from hadoop_helper import create_hdfs_direcotry, delete_hdfs_direcotry, read_hdfs_file
 from sqlalchemy import text
 
 y_or_n_input = lambda x: True if x == 'Y' else False # returns true if value is 'Y' (yes) otherwise defaults to False
@@ -372,3 +372,11 @@ def db_lifecycle_rule_def(user_id, node_id, trans_to, dt_trans):
     dt_trans = [str(x) for x in dt_trans]
     for i in range(len(trans_to)):
         create_db_connection(create_row('lifecycle_transition', ['lifecycle_id', 'transition_to', 'days_till_transition'], [generated_lfcyc_id, trans_to[i], dt_trans[i]]))
+
+def node_dump(user_id, node_id):
+    """Dumps node contents into a list of pandas dictionaries (these dfs are NOT indexed)"""
+    file_paths = create_db_connection(row_action('cortex_node', ['user_id', 'node_id'], 
+                                                [user_id, node_id], 'SELECT DISTINCT file_url, type'), multi_return=[True, 2])
+    for i in range(len(file_paths[0])):
+        file_df = read_hdfs_file(file_paths[0][i], file_paths[1][i])
+    return file_df

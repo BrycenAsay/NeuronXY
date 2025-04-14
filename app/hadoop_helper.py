@@ -45,7 +45,7 @@ def read_hdfs_file(hdfs_file_path, file_type):
         final_df = table.to_pandas()
     try:
         with hdfs.open_input_file(hdfs_file_path) as hdfs_file:
-            content = hdfs_file.read_all()
+            content = hdfs_file.read()
             if file_type == 'csv':
                 final_df = pd.read_csv(io.BytesIO(content))
             elif file_type == 'xlsx':
