@@ -6,7 +6,7 @@ import os
 import pytz
 import shutil
 from sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row
-from hadoop_helper import delete_hdfs_file, upload_hdfs_file
+from hadoop_helper import delete_hdfs_file, upload_hdfs_file, read_hdfs_file
 from cortex import sel_node
 
 class cortex_file:
@@ -154,7 +154,7 @@ def set_vv_abap(file, _attr):
         file.set_file_properties(_attr)
     return file
 
-def persist_file(_node, username, file_name, file_path, non_replica=False):
+def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, non_replica=False):
     """Creates an instance of cortex_file object, loads data according to the file uploaded, then after defining all
     file attributes, uploads those attributes to the DB"""
     cols = ['user_id', 'node_id']
@@ -169,11 +169,11 @@ def persist_file(_node, username, file_name, file_path, non_replica=False):
         sub_version_id = version_vals[0],
         version_id = version_vals[1],
         etag= etag_create(),
-        file_url = f'{file_path}',
+        file_url = f'{hdfs_file_path}',
         owner = username,
         creation_date = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
         last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
-        size = get_file_size_in_units(f'{file_path}'),
+        size = get_file_size_in_units(f'{loacl_file_path}'),
         type = file_name.split('.')[1])
     if non_replica:
         override_defs = input('Override default settings? (Y/N): ')
@@ -253,10 +253,10 @@ def upload_file(_username, node, file_name, perm_tag, replicate_process=False):
                                                          f"'nrn:neuron:cortex:::{node.name}/{file_name}'"], 'SELECT 1'), return_result = True)
         if ((node.node_versioning and 1 in obj_exists) or obj_exists == []):
             if not replicate_process:
-                persist_file(node, _username, file_name, source, True)
+                persist_file(node, _username, file_name, source, destination, True)
                 file_replication(_username, node, file_name, None)
             else:
-                persist_file(node, _username, file_name, source)
+                persist_file(node, _username, file_name, source, destination)
         else:
             create_db_connection(row_action('', ['user_id', 'node_id', 'nrn'], 
                                                 [name_to_id('user_credentials', 'user_id', 'username', _username),
@@ -293,3 +293,12 @@ def delete_file(_username, node, file_name, perm_tag:bool=False):
             name_to_id('cortex', 'node_id', 'name', node.name), f"'nrn:neuron:cortex:::{node.name}/{file_name}'"], 'DELETE'))
         except: # if file is not found, throw error that file could not be found
             print(f'ERROR! No file under name "{file_name}" found! Please ensure file exists in node {node.name} or ensure file name is spelled correctly!')
+
+def get_file(_username, node, file_name, perm_tag):
+    """Accesses a file from HDFS and loads into pandas DF for Synapse (and other service) manipulation"""
+    file_path = create_db_connection(row_action('cortex_node', ['user_id', 'node_id', 'nrn'], 
+                                                              [name_to_id('user_credentials', 'user_id', 'username', _username),
+                                                              name_to_id('cortex', 'node_id', 'name', node.name),
+                                                              f"'nrn:neuron:cortex:::{node.name}/{file_name}'"], 'SELECT DISTINCT file_url, type'), multi_return=[True, 2])
+    file_df = read_hdfs_file(file_path[0][0], file_path[1][0])
+    return file_df
