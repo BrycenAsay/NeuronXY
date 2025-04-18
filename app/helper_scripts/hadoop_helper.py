@@ -1,7 +1,8 @@
 from pyarrow.fs import HadoopFileSystem
-import pyarrow as pa
 import pyarrow.parquet as pq
+import pyarrow.csv as csv
 import pandas as pd
+from typing import Literal
 import io
 
 def create_hdfs_direcotry(full_path):
@@ -38,18 +39,21 @@ def upload_hdfs_file(local_file_path, hdfs_dest_path):
         with hdfs.open_output_stream(hdfs_dest_path) as hdfs_file:
             hdfs_file.write(local_file.read())
 
-def read_hdfs_file(hdfs_file_path, file_type):
+def read_hdfs_file(hdfs_file_path, file_type:Literal['pq', 'csv', 'xlsx'], output_format:Literal['pandas_df', 'arrow_table']):
     hdfs = HadoopFileSystem.from_uri("hdfs://mycluster")
     if file_type == 'pq':
         table = pq.read_table(hdfs_file_path, filesystem=hdfs)
-        final_df = table.to_pandas()
-    try:
-        with hdfs.open_input_file(hdfs_file_path) as hdfs_file:
-            content = hdfs_file.read()
-            if file_type == 'csv':
-                final_df = pd.read_csv(io.BytesIO(content))
-            elif file_type == 'xlsx':
-                final_df = pd.read_excel(io.BytesIO(content))
-        return final_df
-    except:
-        pass
+        if output_format == 'pandas_df':
+            return table.to_pandas()
+        elif output_format == 'arrow_table':
+            return table
+    with hdfs.open_input_file(hdfs_file_path) as hdfs_file:
+        content = hdfs_file.read()
+        if (file_type == 'csv' and output_format == 'pandas_df'):
+            return pd.read_csv(io.BytesIO(content))
+        elif (file_type == 'xlsx' and output_format == 'pandas_df'):
+            return pd.read_excel(io.BytesIO(content))
+        elif (file_type == 'csv' and output_format == 'arrow_table'):
+            return csv.read_csv(hdfs_file)
+        else:
+            print(f"ERROR! Format {output_format} does not support reading file type {file_type}! Please choose a different file type/format combination!")
