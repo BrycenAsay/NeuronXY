@@ -5,9 +5,9 @@ import random
 import os
 import pytz
 import shutil
-from sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row
-from hadoop_helper import delete_hdfs_file, upload_hdfs_file, read_hdfs_file
-from cortex import sel_node
+from helper_scripts.sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row
+from helper_scripts.hadoop_helper import delete_hdfs_file, upload_hdfs_file, read_hdfs_file
+from cortex.cortex import sel_node
 
 class cortex_file:
     """cortex file object attributes for files within a node currently include:

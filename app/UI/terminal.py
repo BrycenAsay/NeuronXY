@@ -1,6 +1,6 @@
 from account_creation import create_creds, reset_password, neuronXY_login, delete_user
-from cortex import sel_node, mk_node, del_node_ap, updt_node_ap, ls_node, nodeSettings, lifecycle_rules
-from cortex_node import upload_file, delete_file, update_file
+from cortex.cortex import sel_node, mk_node, del_node_ap, updt_node_ap, ls_node, nodeSettings, lifecycle_rules
+from cortex.cortex_node import upload_file, delete_file, update_file
 import logging
 
 class terminal:

@@ -2,8 +2,8 @@ import json
 import shutil
 import logging
 import os
-from sql_helper import create_row, create_db_connection, row_action, update_row_dos_id, name_to_id
-from hadoop_helper import create_hdfs_direcotry, delete_hdfs_direcotry, read_hdfs_file
+from helper_scripts.sql_helper import create_row, create_db_connection, row_action, update_row_dos_id, name_to_id
+from helper_scripts.hadoop_helper import create_hdfs_direcotry, delete_hdfs_direcotry, read_hdfs_file
 from sqlalchemy import text
 
 y_or_n_input = lambda x: True if x == 'Y' else False # returns true if value is 'Y' (yes) otherwise defaults to False

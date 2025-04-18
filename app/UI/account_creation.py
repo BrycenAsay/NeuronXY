@@ -4,7 +4,7 @@ import shutil
 import getpass
 import os
 from sqlalchemy import text
-from sql_helper import create_row, update_row, check_if_user_exists, create_db_connection, name_to_id, row_action
+from helper_scripts.sql_helper import create_row, update_row, check_if_user_exists, create_db_connection, name_to_id, row_action
 
 def persist_creds(_username, _password):
     """Creates database connection and saves password + username combination to the database
