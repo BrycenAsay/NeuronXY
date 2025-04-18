@@ -18,6 +18,7 @@ COPY ./NeuronXY /app
 # Set JAVA_HOME and add Java to PATH
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH=$JAVA_HOME/bin:$PATH
+ENV PYTHONPATH=/app
 WORKDIR /app
 
 # Set up Hadoop
@@ -33,8 +34,8 @@ RUN wget -qO- https://dlcdn.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/ha
 COPY requirements.txt .
 
 # Copy Hadoop configuration files
-COPY core-site.xml $HADOOP_HOME/etc/hadoop/
-COPY hdfs-site.xml $HADOOP_HOME/etc/hadoop/
+COPY hadoop_configs/core-site.xml $HADOOP_HOME/etc/hadoop/
+COPY hadoop_configs/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -42,4 +43,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["python", "main.py"]
+CMD ["python", "UI/main.py"]
