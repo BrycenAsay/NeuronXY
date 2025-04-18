@@ -59,7 +59,7 @@ def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nod
       - app_data:/app/NeuronXY
     stdin_open: true
     tty: true
-    command: ["bash", "-c", "python main.py; exec bash"]
+    command: ["bash", "-c", "python UI/main.py; exec bash"]
     image: neuronxy
     environment:
       - POSTGRES_HOST=db
