@@ -271,11 +271,18 @@ def updt_node_ap(_username, node_name, transfer_func):
     update_node(create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)[0]
                  ,create_db_connection(text(f"SELECT node_id FROM cortex WHERE name = '{node_name}'"), return_result=True)[0])
 
-def ls_node(_username, node_name, transfer_func, exclude_nodes:list=[]):
+def ls_node(_username, node_name, transfer_func, exclude_nodes:list=[], return_list=False):
     """Lists all active nodes owned by the user"""
+    node_list = []
     user_id = create_db_connection(text(f"SELECT user_id from user_credentials WHERE username = '{_username}'"), return_result=True)[0]
+    if return_list:
+        nn_list = [x for x in create_db_connection(text(f"SELECT name FROM cortex WHERE user_id = {user_id}"), return_result=True)]
+        for nn in exclude_nodes:
+            nn_list.remove(nn)
+        return nn_list
     for node_name in create_db_connection(text(f"SELECT name FROM cortex WHERE user_id = {user_id}"), return_result=True):
         if node_name not in exclude_nodes:
+            node_list.append(node_name)
             print(f'{node_name}')
 
 def nodeSettings(_username, node_name, transfer_func):
