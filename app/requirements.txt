@@ -4,3 +4,4 @@ sqlalchemy
 pytz
 pyarrow
 pandas
+duckdb
