@@ -57,6 +57,8 @@ def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nod
       dockerfile: Dockerfile
     volumes:
       - app_data:/app/NeuronXY
+      - pandas_funcs:/app/synapse/pandas_funcs
+      - duckdb_scripts:/app/synapse/duckdb_scripts
     stdin_open: true
     tty: true
     command: ["bash", "-c", "python UI/main.py; exec bash"]
@@ -270,6 +272,8 @@ def generate_docker_compose(db_password:str, num_journal_nodes:int=3, num_zk_nod
 
 volumes:
   app_data:
+  pandas_funcs:
+  duckdb_scripts:
   hadoop_zkfc_init:
   yarn_resourcemanager:""")
 
