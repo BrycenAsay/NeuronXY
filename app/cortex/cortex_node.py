@@ -294,11 +294,9 @@ def delete_file(_username, node, file_name, perm_tag:bool=False):
         except: # if file is not found, throw error that file could not be found
             print(f'ERROR! No file under name "{file_name}" found! Please ensure file exists in node {node.name} or ensure file name is spelled correctly!')
 
-def get_file(_username, node, file_name, perm_tag):
+def get_file(user_id, node_id, file_id, out_file_format, perm_tag):
     """Accesses a file from HDFS and loads into pandas DF for Synapse (and other service) manipulation"""
-    file_path = create_db_connection(row_action('cortex_node', ['user_id', 'node_id', 'nrn'], 
-                                                              [name_to_id('user_credentials', 'user_id', 'username', _username),
-                                                              name_to_id('cortex', 'node_id', 'name', node.name),
-                                                              f"'nrn:neuron:cortex:::{node.name}/{file_name}'"], 'SELECT DISTINCT file_url, type'), multi_return=[True, 2])
-    file_df = read_hdfs_file(file_path[0][0], file_path[1][0])
+    file_path = create_db_connection(row_action('cortex_node', ['user_id', 'node_id', 'file_id'], 
+                                                               [user_id, node_id, file_id], 'SELECT DISTINCT file_url, type'), multi_return=[True, 2])
+    file_df = read_hdfs_file(file_path[0][0], file_path[1][0], out_file_format)
     return file_df
