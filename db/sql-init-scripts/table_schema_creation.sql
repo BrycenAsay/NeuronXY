@@ -88,8 +88,9 @@ CREATE TABLE IF NOT EXISTS public.lifecycle_transition (
         ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS public.synapse (
-    synapse_id SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS public.synapse_qf (
+    user_id integer NOT NULL,
+    synapse_qf_id SERIAL PRIMARY KEY,
     name character varying(50) COLLATE pg_catalog."default",
     in_srv_type character varying(20) COLLATE pg_catalog."default",
     in_srv_id smallint,
@@ -100,5 +101,9 @@ CREATE TABLE IF NOT EXISTS public.synapse (
     src_file character varying(100) COLLATE pg_catalog."default",
     timeout numeric(4,0),
     enabled boolean,
-    CONSTRAINT synapse_timeout_check CHECK (timeout <= 1500::numeric)
+    CONSTRAINT synapse_timeout_check CHECK (timeout <= 1500::numeric),
+    CONSTRAINT fk_uid FOREIGN KEY (user_id)
+        REFERENCES public.user_credentials (user_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 );
