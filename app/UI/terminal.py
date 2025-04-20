@@ -1,6 +1,7 @@
 from account_creation import create_creds, reset_password, neuronXY_login, delete_user
 from cortex.cortex import sel_node, mk_node, del_node_ap, updt_node_ap, ls_node, nodeSettings, lifecycle_rules
 from cortex.cortex_node import upload_file, delete_file, update_file
+from synapse.synapse_qf import mk_synapse_qf
 import logging
 
 class terminal:
@@ -27,7 +28,8 @@ class terminal:
                                'node': 'Used in combination with other commands to control cortex nodes, typically you would perceed this keyword with the name of an existing node',
                                'lifecycle_rule': 'Used in combination with the -add and -updt commands to add and update lifecycle rules for nodes',
                                '--perm': 'Permenanet tag, used to override any backup processes (not generally recommended)',
-                               '-add': 'Used to add properties to an file that by default does not get created with said properties'},
+                               '-add': 'Used to add properties to an file that by default does not get created with said properties',
+                               'qf': 'Used in combination with other commands to control synapse queries/functions'},
                  cmds=None):
         self.cmds_help_dict = cmds_help_dict
         self.terminal_type = terminal_type
@@ -93,7 +95,8 @@ class terminal:
                                    '-del': {'user': delete_user}}}, param_list)
         elif self.terminal_type == 'acct':
             self.run_cmds({'-res': {'password': reset_password}, 
-                           '-srv': {'cortex': cortex_def_terminal}}, param_list)
+                           '-srv': {'cortex': cortex_def_terminal,
+                                    'synapse': synapse_terminal}}, param_list)
         elif self.terminal_type == 'cortex':
             self.run_cmds({'-sel': {'node': sel_node},
                            '-mk': {'node': mk_node},
@@ -107,6 +110,8 @@ class terminal:
                            '-del': delete_file,
                            '-updt': update_file,
                            'cmd_tags': {'-del': ['--perm']}}, param_list)
+        elif self.terminal_type == 'synapse':
+            self.run_cmds({'-mk': {'qf': mk_synapse_qf}}, param_list)
 
 def dynamic_term_vals(terminal_type, _term_cmd_obj, _term_spec_parm): 
     """function that sets dynamic cmd line arguments into the terminal instance (ex: name of a node or node file)"""
@@ -160,6 +165,13 @@ def cortex_node_terminal(_username, node):
         terminal_entry('cortex_node', prompt_command, [_username, node, None, False])
         prompt_command = input(f'NeuronXY\\users\\{_username}\\cortex\\{node.name}> ')
     cortex_def_terminal(_username)
+
+def synapse_terminal(_username):
+    prompt_command = input(f'NeuronXY\\users\\{_username}\\synapse> ')
+    while prompt_command != 'exit':
+        terminal_entry('synapse', prompt_command, [_username])
+        prompt_command = input(f'NeuronXY\\users\\{_username}\\synapse> ')
+    acct_level_main(_username)
 
 if __name__ == '__main__':
     ap_level_main()
