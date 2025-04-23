@@ -23,6 +23,22 @@ def create_db_connection(_sql, return_result:bool = False, multi_return:list = [
             conn.rollback()
             print(f'There was a sql error with the following query: {_sql}')
 
+def postgres_format(python_vals):
+    pg_vals = []
+    for val in python_vals:
+        if isinstance(val, str):
+            if val != 'Null':
+                pg_vals.append(f"'{str(val)}'")
+            else:
+                pg_vals.append(val)
+        elif isinstance(val, list):
+            pg_vals.append(f"ARRAY{val}::TEXT[]")
+        elif val == None:
+            pg_vals.append('Null')
+        else:
+            pg_vals.append(str(val))
+    return pg_vals
+
 def create_row(table_name, columns:list, data:list):
     """Creates a row in the database given a table, a list of columns, and a list of values for specified columns"""
     columns = ",".join(columns)
