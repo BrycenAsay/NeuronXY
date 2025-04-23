@@ -3,6 +3,7 @@ import hashlib
 import shutil
 import getpass
 import os
+from app_logging import create_log_entry
 from sqlalchemy import text
 from helper_scripts.sql_helper import create_row, update_row, check_if_user_exists, create_db_connection, name_to_id, row_action
 
@@ -18,6 +19,7 @@ def persist_creds(_username, _password):
         return False
     else: # run 'create row' SQL function to insert details into user_credentials table
         create_db_connection(create_row('user_credentials', ['username', 'password'], [f"'{_username}'", f"'{_password}'"]))
+        create_log_entry(_username, 'POST', 'userAdd', object_name='user')
 
 def update_creds(_username, _password):
     """Updates password for a given user
@@ -26,6 +28,7 @@ def update_creds(_username, _password):
     _username: username of an existing user
     _password: new password for the given user"""
     create_db_connection(update_row('user_credentials', 'password', _password, 'username', _username))
+    create_log_entry(_username, 'PUT', 'passwordUpdate', object_name='user')
 
 def salt_pass(_username, _password, post_salt='', clear_slt_file=False):
     """Adds four random character strings at random positions into user's specified password for extra security. 
@@ -139,6 +142,7 @@ def delete_user(unused_param):
         print(f'Are you sure you want to delete user {username}? Please note that this action cannot be undone, and all resources related to this account will be lost!')
         confirm_delete = input('Type CONFIRM to proceed with user and resource deletion: ')
         if confirm_delete == 'CONFIRM': # if delete is confirmed, remove entry from user credentials (this should cascade and delete any rows in related tables for this user) and remove user subdirectory
+            create_log_entry(username, 'DELETE', 'userDelete', object_name='user')
             create_db_connection(row_action('user_credentials', ['user_id'], [name_to_id('user_credentials', 'user_id', 'username', username)], 'DELETE'))
             shutil.rmtree(f"NeuronXY/users/{username}")
             print(f'User {username} and any related resources have successfully been deleted')
