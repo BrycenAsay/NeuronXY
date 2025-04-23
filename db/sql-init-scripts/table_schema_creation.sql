@@ -107,3 +107,20 @@ CREATE TABLE IF NOT EXISTS public.synapse_qf (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS public.logging (
+    log_id SERIAL PRIMARY KEY,
+    created_timestamp timestamp,
+    description varchar(100),
+    user_id integer NOT NULL,
+    service varchar(30),
+    action varchar(8),
+    host varchar(30),
+    host_details jsonb,
+    object varchar(30),
+    object_details jsonb,
+    CONSTRAINT fk_uid FOREIGN KEY (user_id)
+        REFERENCES public.user_credentials (user_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+)
