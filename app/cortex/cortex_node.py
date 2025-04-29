@@ -1,11 +1,13 @@
 from datetime import datetime
 import logging
 logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
+from UI.app_logging import create_log_entry
+from helper_scripts.utils import prompt_validation
 import random
 import os
 import pytz
 import shutil
-from helper_scripts.sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row
+from helper_scripts.sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row, postgres_format
 from helper_scripts.hadoop_helper import delete_hdfs_file, upload_hdfs_file, read_hdfs_file
 from cortex.cortex import sel_node
 
@@ -70,30 +72,13 @@ class cortex_file:
     def set_file_properties(self, attr):
         """Allows overrding of default file properties (only used for storage class for now)"""
         if attr == 'storage_class':
-            storage_classes = ['standard', 'intelligent-tiering', 'standard-IA', 'one-zone-IA', 'glacier-instant-retrieval', 'glacier-flexible-retrieval', 'glacier-deep-archive']
-            print(f'{', '.join(storage_classes)}')
-            storage_class = input('Please enter a valid storage class for this file: ')
-            while storage_class not in storage_classes:
-                storage_class = input('Please enter a valid storage class for this file: ')
+            storage_class = prompt_validation('Please enter a valid storage class for this file: ', req_vals=['standard', 'intelligent-tiering', 'standard-IA', 'one-zone-IA', 'glacier-instant-retrieval', 'glacier-flexible-retrieval', 'glacier-deep-archive'], prnt_req_vals=True)
             self.storage_class = storage_class
         if attr == 'tags':
             tags = input('Please enter tags you want associated with the file, seperated by commas: ').split(',')
             if '' in tags:
                 tags.remove('')
             self.tags = tags
-
-    @staticmethod
-    def validate_value(value, object_attr):
-        """Validates that the value being set for an attribute is valid where validation is needed, returns
-        False where the validation criteria is not met"""
-        if object_attr == 'storage_class':
-            if value not in ['standard', 'intelligent-tiering', 'standard-IA', 'one-zone-IA', 'glacier-instant-retrieval', 'glacier-flexible-retrieval', 'glacier-deep-archive']:
-                print('ERROR! VALUE IS NOT VALID!')
-                return False
-            else:
-                return True
-        else:
-            return True
 
 def version_node(_username, node, file_name):
     """Will version an file depending on the ordinal value of the file upload"""
@@ -147,21 +132,13 @@ def get_file_size_in_units(file_path):
     else:
         return f"{file_size_bytes / (1024 ** 3):.2f} GB"
 
-def set_vv_abap(file, _attr):
-    """Sets and validates the attribute values for an file instance"""
-    file.set_file_properties(_attr)
-    while file.validate_value(file.get_file_properties(_attr), _attr) != True:
-        file.set_file_properties(_attr)
-    return file
-
-def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, non_replica=False):
+def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, bypass_input=False, non_replica=False):
     """Creates an instance of cortex_file object, loads data according to the file uploaded, then after defining all
     file attributes, uploads those attributes to the DB"""
     cols = ['user_id', 'node_id']
     user_id = name_to_id('user_credentials', 'user_id', 'username', username) #retrieve user_id from DB based off username
     node_id = name_to_id('cortex', 'node_id', 'name', _node.name) #retrieve node_id from DB based off node name
     prepro_vals = [user_id, node_id]
-    vals = []
     version_vals = version_node(username, _node, file_name)
     new_file = cortex_file( #instaniate cortex_file and define values based on file information
         uri=f'cortex://{_node.name}/{file_name}',
@@ -176,27 +153,16 @@ def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, no
         size = get_file_size_in_units(f'{loacl_file_path}'),
         type = file_name.split('.')[1])
     if non_replica:
-        override_defs = input('Override default settings? (Y/N): ')
-        while override_defs not in ['Y', 'N']:
-            print('ERROR! You must provide Y or N as an answer!')
-            override_defs = input('Override default settings? (Y/N): ')
+        override_defs = prompt_validation('Override default settings? (Y/N): ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False}, bp_input=[bypass_input, 'N'])
         if override_defs == 'Y':
             new_file = override_defaults(new_file)
     for attribute in new_file.properties:
         cols.append(attribute) #columns to update in DB, matched with file attributes
         prepro_vals.append(new_file.get_file_properties(attribute)) #values to uploaded, pre postgres friendly translation
     # go through the unprocessed values, and change formating to postgres friendly as per value data type
-    for val in prepro_vals:
-        if ((isinstance(val, str)) or (isinstance(val, datetime))):
-            if val != 'Null':
-                vals.append(f"'{str(val)}'")
-            else:
-                vals.append(val)
-        elif isinstance(val, list):
-            vals.append(f"ARRAY{val}::TEXT[]")
-        else:
-            vals.append(str(val))
+    vals = postgres_format(prepro_vals)
     create_db_connection(create_row('cortex_node', cols, vals))
+    create_log_entry(username, 'POST', 'uploadFile', 'cortex', 'node', _node, 'file', new_file)
 
 def file_replication(_username, _node, _file_name, _perm_tag):
     """Replicates any files that have the target from node specified as the node that got the file uploaded to it"""
@@ -212,7 +178,7 @@ def override_defaults(file):
     def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
     while def_pv_to_change != 'DONE':
         if def_pv_to_change in updateable_properties:
-            file = set_vv_abap(file, def_pv_to_change)
+            file.set_file_properties(def_pv_to_change)
         print(f'Avaliable updateable properties: {','.join(updateable_properties)}\n')
         def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
     return file
@@ -228,18 +194,11 @@ def update_file(_username, _node, _file_name, _perm_tag):
     existing_file = override_defaults(existing_file)
 
     #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update file values
-    for property in existing_file.properties:
-        val = existing_file.get_node_properties(property)
-        if isinstance(val, str):
-            if val != 'Null':
-                val = f"'{str(val)}'"
-            else:
-                val = val
-        elif isinstance(val, list):
-            val = f"ARRAY{val}::TEXT[]"
-        else:
-            val = str(val)
-        create_db_connection(row_action('', ['user_id', 'node_id', 'file_id'], usr_buk_obj_ids, f'UPDATE cortex_node SET {property} = {val}'))
+    vals = postgres_format([existing_file.get_node_properties(property) for property in existing_file.properties])
+    cols = existing_file.properties
+    for i in range(len(vals)):
+        create_db_connection(row_action('', ['user_id', 'node_id', 'file_id'], usr_buk_obj_ids, f'UPDATE cortex_node SET {cols[i]} = {vals[i]}', frm_keywrd=''))
+        create_log_entry(_username, 'PUT', 'updateFile', 'cortex', 'node', _node, 'file', existing_file)
 
 def upload_file(_username, node, file_name, perm_tag, replicate_process=False):
     """Uploads file from externalFiles folder into an cortex node and records details in the DB"""
