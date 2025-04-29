@@ -1,5 +1,6 @@
 from sqlalchemy import text, create_engine
 from config import USER, PASSWORD, HOST, PORT, DATABASE
+from datetime import datetime
 import logging
 
 def create_db_connection(_sql, return_result:bool = False, multi_return:list = [False, 0]):
@@ -26,7 +27,7 @@ def create_db_connection(_sql, return_result:bool = False, multi_return:list = [
 def postgres_format(python_vals):
     pg_vals = []
     for val in python_vals:
-        if isinstance(val, str):
+        if ((isinstance(val, str)) or (isinstance(val, datetime))):
             if val != 'Null':
                 pg_vals.append(f"'{str(val)}'")
             else:
