@@ -94,10 +94,12 @@ CREATE TABLE IF NOT EXISTS public.synapse_qf (
     name character varying(50) COLLATE pg_catalog."default",
     in_srv_type character varying(20) COLLATE pg_catalog."default",
     in_srv_id smallint,
-    srv_trig_type character varying(8) COLLATE pg_catalog."default",
-    srv_trig_resource character varying(16) COLLATE pg_catalog."default",
+    in_trig_type character varying(8) COLLATE pg_catalog."default",
+    in_trig_object character varying(16) COLLATE pg_catalog."default",
     out_srv_type character varying(20) COLLATE pg_catalog."default",
     out_srv_id smallint,
+    out_trig_type character varying(8) COLLATE pg_catalog."default",
+    out_trig_object character varying(16) COLLATE pg_catalog."default",
     src_file character varying(100) COLLATE pg_catalog."default",
     timeout numeric(4,0),
     enabled boolean,
@@ -119,6 +121,7 @@ CREATE TABLE IF NOT EXISTS public.logging (
     host_details jsonb,
     object varchar(30),
     object_details jsonb,
+    synapse_processed boolean,
     CONSTRAINT fk_uid FOREIGN KEY (user_id)
         REFERENCES public.user_credentials (user_id) MATCH SIMPLE
         ON UPDATE CASCADE

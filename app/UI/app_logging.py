@@ -33,10 +33,10 @@ def create_object_json(raw_obj_instance):
     return json.dumps(dict_obj)
 
 def create_log_entry(_username, action, description, srv_name=None, host_name=None, raw_host=None, object_name=None, raw_object=None):
-    cols = ['created_timestamp', 'description', 'user_id', 'service', 'action', 'host', 'host_details', 'object', 'object_details']
+    cols = ['created_timestamp', 'description', 'user_id', 'service', 'action', 'host', 'host_details', 'object', 'object_details', 'synapse_processed']
     user_id = name_to_id('user_credentials', 'user_id', 'username', _username)
     log_timestamp = cur_timestamp_mt()
     host_json = create_object_json(raw_host)
     object_json = create_object_json(raw_object)
-    log_data = postgres_format([log_timestamp, description, user_id, srv_name, action, host_name, host_json, object_name, object_json])
+    log_data = postgres_format([log_timestamp, description, user_id, srv_name, action, host_name, host_json, object_name, object_json, False])
     create_db_connection(create_row('logging', cols, log_data))
