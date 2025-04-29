@@ -2,11 +2,11 @@ import json
 import shutil
 import logging
 import os
-from helper_scripts.sql_helper import create_row, create_db_connection, row_action, update_row_dos_id, name_to_id
+from helper_scripts.sql_helper import create_row, create_db_connection, row_action, update_row_dos_id, name_to_id, postgres_format
 from helper_scripts.hadoop_helper import create_hdfs_direcotry, delete_hdfs_direcotry, read_hdfs_file
+from helper_scripts.utils import prompt_validation, init_object
 from sqlalchemy import text
-
-y_or_n_input = lambda x: True if x == 'Y' else False # returns true if value is 'Y' (yes) otherwise defaults to False
+from UI.app_logging import create_log_entry
 
 class cortex_node:
     """cortex node object, attributes for a node currently include:
@@ -58,33 +58,33 @@ class cortex_node:
     def set_node_properties(self, attr):
         """Allows a terminal user to set node properties by passing the attribute string as the attr argument"""
         if attr == 'name':
-            self.name = input('Please enter a name for this node between 3 to 63 characters> ')
+            self.name = prompt_validation('Please enter a name for this node between 3 to 63 characters> ', req_len_range=[3, 63])
         if attr == 'block_public_access':
-            self.block_public_access = y_or_n_input(input('Would you like to block public access? (Y/N)> '))
+            self.block_public_access = prompt_validation('Would you like to block public access? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
         if attr == 'acl_enabled':
-            self.acl_enabled = y_or_n_input(input('Would you like to enable ACLs? (Y/N)> '))
+            self.acl_enabled = prompt_validation('Would you like to enable ACLs? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
         if attr == 'node_policy':
             try:
                 self.node_policy = json.dumps(input('Please enter a node policy> '))
             except:
                 self.node_policy = 'NOT A VALID JSON OBJECT'
         if attr == 'node_type':
-            self.node_type = input('Please enter a valid node type (gp or dir)> ')
+            self.node_type = prompt_validation('Please enter a valid node type (gp or dir)> ', req_vals=['gp', 'dir'])
         if attr == 'node_versioning':
-            self.node_versioning = y_or_n_input(input('Would you like to enable node versioning? (Y/N)> '))
+            self.node_versioning = prompt_validation('Would you like to enable node versioning? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
         if attr == 'tags':
             tags = input('Please enter tags you want associated with the node, seperated by commas> ').split(',')
             if '' in tags:
                 tags.remove('')
             self.tags = tags
         if attr == 'encrypt_method':
-            self.encrypt_method = input('Please enter a valid encryption method (SSE-CORTEX, SEE-KMS, DSSE-KMS)> ')
+            self.encrypt_method = prompt_validation('Please enter a valid encryption method (SSE-CORTEX, SEE-KMS, DSSE-KMS)> ', req_vals=['SSE-CORTEX', 'SEE-KMS', 'DSSE-KMS'])
         if attr == 'node_key':
-            self.node_key = y_or_n_input(input('Would you like to create a node key? (Y/N)> '))
+            self.node_key = prompt_validation('Would you like to create a node key? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
         if attr == 'file_lock':
-            self.file_lock = y_or_n_input(input('Would you like to enable file lock? (Y/N)> '))
+            self.file_lock = prompt_validation('Would you like to enable file lock? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
         if attr == 'file_replication':
-            self.file_replication = y_or_n_input(input('Would you like to enable file replication? (Y/N)> '))
+            self.file_replication = prompt_validation('Would you like to enable file replication? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
 
     def define_node_properties(self, attr_name, value):
         if hasattr(self, attr_name):  # Ensure the attribute exists
@@ -99,48 +99,6 @@ class cortex_node:
         else:
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr_name}'")
 
-    @staticmethod
-    def validate_value(value, object_attr):
-        """Validates that the value being set for an attribute is valid where validation is needed, returns
-        False where the validation criteria is not met"""
-        if object_attr == 'node_type':
-            if value not in ['gp', 'dir']:
-                print('ERROR! VALUE MUST EITHER BE GP (GENERAL PURPOSE) OR DIR (DIRECTORY)')
-                return False
-            else:
-                return True
-        if object_attr == 'encrypt_method':
-            if value not in ['SSE-CORTEX', 'SEE-KMS', 'DSSE-KMS']:
-                print('ERROR! VALID ENCRYPTION SETTING NOT SELECTED! PLEASE SELECT A VALID ENCRYPTION SETTING!')
-                return False
-            else:
-                return True
-        if object_attr == 'name':
-            if (3 <= len(value) <= 63) is False:
-                print('ERROR! NAME MUST BE BETWEEN 3 AND 63 CHARACTERS!')
-                return False
-            elif (1 in create_db_connection(text(f"SELECT 1 FROM cortex WHERE name = '{value}'"), return_result=True)):
-                print('ERROR! Node name is already in use by an existing user. Please choose a different node name!')
-                return False
-            else:
-                return True
-        if object_attr == 'node_policy':
-            try:
-                parsed_data = json.loads(value)
-                return True
-            except:
-                print('ERROR! VALUE IS NOT IN VALID JSON FORMAT!')
-                return False
-        else:
-            return True
-
-def set_vv_abap(node, _attr):
-    """Sets and validates the attribute values for a node instance"""
-    node.set_node_properties(_attr)
-    while node.validate_value(node.get_node_properties(_attr), _attr) != True:
-        node.set_node_properties(_attr)
-    return node
-
 def upload_properties_to_db(node, _username):
     """Uploads node properties to the DB"""
     cols = ['user_id'] + node.properties
@@ -149,16 +107,7 @@ def upload_properties_to_db(node, _username):
     for property in node.properties:
         prepro_vals.append(node.get_node_properties(property))
     #ensure values are in Postgres friendly formating based on data type before being written to the SQL query
-    for val in prepro_vals:
-        if isinstance(val, str):
-            if val != 'Null':
-                vals.append(f"'{str(val)}'")
-            else:
-                vals.append(val)
-        elif isinstance(val, list):
-            vals.append(f"ARRAY{val}::TEXT[]")
-        else:
-            vals.append(str(val))
+    vals = postgres_format(prepro_vals)
     create_db_connection(create_row('cortex', cols, vals))
 
 def remove_node_db_dir(_user_id, _node_id):
@@ -171,9 +120,10 @@ def update_node(_user_id, _node_id):
     for attribute in existing_node.properties: #pull node values from database and set cortex_node attributes on exiting_node instance
         existing_node.define_node_properties(attribute, create_db_connection(text(f"SELECT {attribute} FROM cortex WHERE user_id = {_user_id} AND node_id = {_node_id}"), return_result=True)[0])
     
-    # give user updatable properties (removed name and replication_node_id, name is immutable after the node gets created and replication_node_id must go through a seperate validation process) and prompt for values to change until user types 'DONE'
+    # give user updatable properties (removed name, nrn, and replication_node_id, name and nrn are immutable after the node gets created and replication_node_id must go through a seperate validation process) and prompt for values to change until user types 'DONE'
     updateable_properties = [x for x in existing_node.properties]
     updateable_properties.remove('name')
+    updateable_properties.remove('nrn')
     updateable_properties.remove('replication_node_id')
     print(f'Avaliable changeable properties: {','.join(updateable_properties)}\n')
     def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
@@ -181,25 +131,17 @@ def update_node(_user_id, _node_id):
         if def_pv_to_change == 'file_replication' and existing_node.file_replication:
             print('\nWARNING! Node replication is already enabled on this node! If you wish to update the target node for file replication, please disable and renable file replication. You can then change the file replication target node!\n')
         if def_pv_to_change in updateable_properties:
-            existing_node = set_vv_abap(existing_node, def_pv_to_change)
+            existing_node.set_node_properties(def_pv_to_change)
         print(f'Avaliable updateable properties: {','.join(updateable_properties)}\n')
         def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
     if (existing_node.replication_node_id is None or existing_node.replication_node_id is not None and not existing_node.file_replication):
         existing_node = node_replication(create_db_connection(text(f'SELECT username FROM user_credentials WHERE user_id = {_user_id}'), return_result=True)[0], existing_node, None)
 
     #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update node values
-    for property in existing_node.properties:
-        val = existing_node.get_node_properties(property)
-        if isinstance(val, (str, dict)):
-            if val != 'Null':
-                val = f"'{str(val)}'"
-            else:
-                val = val
-        elif isinstance(val, list):
-            val = f"ARRAY{val}::TEXT[]"
-        else:
-            val = str(val)
-        create_db_connection(update_row_dos_id('cortex', property, val, 'user_id', _user_id, 'node_id', _node_id))
+    vals = postgres_format([existing_node.get_node_properties(property) for property in existing_node.properties])
+    cols = existing_node.properties
+    for i in range(len(vals)):
+        create_db_connection(row_action('', ['user_id', 'node_id'], [_user_id, _node_id], action_type=f'UPDATE cortex SET {cols[i]} = {vals[i]}', frm_keywrd=''))
 
 def create_cortex_directory(_username, node):
     """Creates an cortex directory if it does not yet exist and node subdirectory within that directory for the logged in user"""
@@ -235,31 +177,36 @@ def override_defaults(node):
     while def_pv_to_change != 'DONE': # if overriding default settings, continue to ask about setting changes until user types 'DONE'
         try:
             changeable_properties.index(def_pv_to_change)
-            node = set_vv_abap(node, def_pv_to_change) # allow user to set attribute, if the node attribute exists
+            node.set_node_properties(def_pv_to_change) # allow user to set attribute, if the node attribute exists
         except:
             pass # if attribute does not exist and error thrown, simply ignore
         print(f'Avaliable changeable properties: {','.join(changeable_properties)}\n')
         def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
     return node
 
-def mk_node(_username, node_name, transfer_func):
+def mk_node(_username, node_name, transfer_func, bypass_input=False, **kwargs):
     """Creates a new cortex node, cortex node subdirectory within cortex directory, and persists information in DB"""
-    new_node = cortex_node() # create instance of cortex_node object
-    new_node = set_vv_abap(new_node, 'name') # set values that do not have default values
+    if not bypass_input:
+        new_node = cortex_node() # create instance of cortex_node object
+        new_node.set_node_properties('name') # set values that do not have default values
+        if (1 in create_db_connection(text(f"SELECT 1 FROM cortex WHERE name = '{new_node.get_node_properties('name')}'"), return_result=True)):
+            print('ERROR! Node name is already in use by an existing user. Please choose a different node name!')
+            return
+        ow_def_set = prompt_validation('Override default settings? (Y/N): ', ['Y', 'N'], bp_input=[bypass_input, 'N'])
+        if ow_def_set == 'Y': # allow user to override default settings before node creation, if desired
+            new_node = override_defaults(new_node)
+    else:
+        new_node = init_object(cortex_node(), **kwargs)
     new_node.define_node_properties('nrn', f'nrn:aws:cortex:::{new_node.name}')
-    ow_def_set = input('Override default settings? (Y/N): ')
-    while ow_def_set not in ['Y', 'N']:
-        print('ERROR! ENTER Y or N!')
-        ow_def_set = input('Override default settings? (Y/N): ')
-    if ow_def_set == 'Y': # allow user to override default settings before node creation, if desired
-        new_node = override_defaults(new_node)
     new_node = node_replication(_username, new_node, None)
     upload_properties_to_db(new_node, _username)
     create_cortex_directory(_username, new_node)
+    create_log_entry(_username, 'POST', 'cortexNodeAdd', 'cortex', None, None, 'node', new_node)
 
 def del_node_ap(_username, node_name, transfer_func):
     """User access point to run function 'remove_node_db_dir' which removes a specified node and node sub directory"""
     try:
+        create_log_entry(_username, 'DELETE', 'nodeDelete', 'cortex', None, None, 'node', sel_node(_username, node_name, None, override_transfer=True))
         remove_node_db_dir(create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)[0]
                             ,create_db_connection(text(f"SELECT node_id FROM cortex WHERE name = '{node_name}'"), return_result=True)[0])
         delete_hdfs_direcotry(f"{_username}/cortex/{node_name}")
@@ -268,6 +215,7 @@ def del_node_ap(_username, node_name, transfer_func):
 
 def updt_node_ap(_username, node_name, transfer_func):
     """User access point to run function 'update_node' which updates settings for a specified node"""
+    create_log_entry(_username, 'PUT', 'nodeUpdate', 'cortex', None, None, 'node', sel_node(_username, node_name, None, override_transfer=True))
     update_node(create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)[0]
                  ,create_db_connection(text(f"SELECT node_id FROM cortex WHERE name = '{node_name}'"), return_result=True)[0])
 
