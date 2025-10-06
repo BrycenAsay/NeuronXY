@@ -80,6 +80,11 @@ def row_action(table_name, ids:list, values:list, action_type, not_eq:list=[], f
                 where_id_eq_val.append(f'AND {ids[i]} {eq_op} {values[i]}')
     return text(f'{action_type} {frm_keywrd} {table_name} {where_id_eq_val[0]} {' '.join(where_id_eq_val[1:len(where_id_eq_val)])} {group_state} {order_state} {limit_state}')
 
+def raw_sql(_sql):
+    """Runs a raw sql command"""
+    query = text(_sql)
+    return query
+
 def update_row(table_name, column, data, where_1, eq_value_1):
     """Updates row given one column equals one value. Must specify column and the associated value as part of the function parameters"""
     if (isinstance(data, int) or data == 'Null'):
