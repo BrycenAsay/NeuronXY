@@ -1,4 +1,3 @@
-import sys
 from terminal import ap_level_main
 
 def main():
