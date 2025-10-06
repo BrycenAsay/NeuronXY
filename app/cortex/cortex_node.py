@@ -7,8 +7,8 @@ import random
 import os
 import pytz
 import shutil
-from helper_scripts.sql_helper import create_row, create_db_connection, name_to_id, row_action, update_row, postgres_format
-from helper_scripts.hadoop_helper import delete_hdfs_file, upload_hdfs_file, read_hdfs_file
+from helper_scripts.sql_helper import create_row, create_db_connection, name_to_id, row_action, postgres_format
+from helper_scripts.hadoop_helper import delete_hdfs_file, upload_hdfs_file, upload_pa_table, read_hdfs_file
 from cortex.cortex import sel_node
 
 class cortex_file:
@@ -132,7 +132,7 @@ def get_file_size_in_units(file_path):
     else:
         return f"{file_size_bytes / (1024 ** 3):.2f} GB"
 
-def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, bypass_input=False, non_replica=False):
+def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, non_replica=False, bypass_input=False, synapse_run=False):
     """Creates an instance of cortex_file object, loads data according to the file uploaded, then after defining all
     file attributes, uploads those attributes to the DB"""
     cols = ['user_id', 'node_id']
@@ -152,7 +152,7 @@ def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, by
         last_modified = datetime.now(tz=pytz.timezone('US/Mountain')).replace(tzinfo=None),
         size = get_file_size_in_units(f'{loacl_file_path}'),
         type = file_name.split('.')[1])
-    if non_replica:
+    if not non_replica or not bypass_input:
         override_defs = prompt_validation('Override default settings? (Y/N): ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False}, bp_input=[bypass_input, 'N'])
         if override_defs == 'Y':
             new_file = override_defaults(new_file)
@@ -162,7 +162,7 @@ def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, by
     # go through the unprocessed values, and change formating to postgres friendly as per value data type
     vals = postgres_format(prepro_vals)
     create_db_connection(create_row('cortex_node', cols, vals))
-    create_log_entry(username, 'POST', 'uploadFile', 'cortex', 'node', _node, 'file', new_file)
+    create_log_entry(username, 'POST', 'uploadFile', 'cortex', 'node', _node, 'file', new_file, synapse_run)
 
 def file_replication(_username, _node, _file_name, _perm_tag):
     """Replicates any files that have the target from node specified as the node that got the file uploaded to it"""
@@ -200,22 +200,25 @@ def update_file(_username, _node, _file_name, _perm_tag):
         create_db_connection(row_action('', ['user_id', 'node_id', 'file_id'], usr_buk_obj_ids, f'UPDATE cortex_node SET {cols[i]} = {vals[i]}', frm_keywrd=''))
         create_log_entry(_username, 'PUT', 'updateFile', 'cortex', 'node', _node, 'file', existing_file)
 
-def upload_file(_username, node, file_name, perm_tag, replicate_process=False):
+def upload_file(_username, node, file_name, perm_tag, replicate_process=False, pa_upload=False, pa_table=None, bp_input=False, synapse_run=False):
     """Uploads file from externalFiles folder into an cortex node and records details in the DB"""
     source = f"NeuronXY/externalFiles/{file_name}"
     destination = f"{_username}/cortex/{node.name}/{file_name}"
     try: # attempt to find file name in externalFiles and move file to subdirectory. Afterwards, record file details in DB
-        upload_hdfs_file(source, destination)
+        if pa_upload:
+            upload_pa_table(pa_table, destination)
+        else:
+            upload_hdfs_file(source, destination)
         obj_exists = create_db_connection(row_action('cortex_node', ['user_id', 'node_id', 'nrn'], 
                                                         [name_to_id('user_credentials', 'user_id', 'username', _username),
                                                          name_to_id('cortex', 'node_id', 'name', node.name),
                                                          f"'nrn:neuron:cortex:::{node.name}/{file_name}'"], 'SELECT 1'), return_result = True)
         if ((node.node_versioning and 1 in obj_exists) or obj_exists == []):
             if not replicate_process:
-                persist_file(node, _username, file_name, source, destination, True)
+                persist_file(node, _username, file_name, source, destination, True, bp_input, synapse_run=synapse_run)
                 file_replication(_username, node, file_name, None)
             else:
-                persist_file(node, _username, file_name, source, destination)
+                persist_file(node, _username, file_name, source, destination, synapse_run=synapse_run)
         else:
             create_db_connection(row_action('', ['user_id', 'node_id', 'nrn'], 
                                                 [name_to_id('user_credentials', 'user_id', 'username', _username),
