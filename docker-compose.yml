@@ -195,8 +195,8 @@ services:
       - hadoop_namenode1:/hadoopdata/namenode  # If you're mounting config files
       - hadoop_zkfc_init:/hadoopdata/zkfc/formatted
     ports:
-      - "9870:9870"  # Expose ports if necessary
-      - "8020:8020"
+      - "9875:9870"  # Expose ports if necessary
+      - "8025:8020"
     depends_on:
       journalnode1:
         condition: service_healthy
@@ -245,6 +245,10 @@ services:
       - HADOOP_ROLE=datanode
     volumes:
       - hadoop_datanode1:/hadoopdata/datanode
+    ports:
+      - "9864:9864"  # DataNode HTTP port
+      - "9866:9866"  # DataNode data transfer port
+      - "9867:9867"  # DataNode IPC port
     depends_on:
       namenode1:
         condition: service_healthy
@@ -260,6 +264,10 @@ services:
       - HADOOP_ROLE=datanode
     volumes:
       - hadoop_datanode2:/hadoopdata/datanode
+    ports:
+      - "9865:9864"  # DataNode HTTP port
+      - "9868:9866"  # DataNode data transfer port
+      - "9869:9867"  # DataNode IPC port
     depends_on:
       namenode1:
         condition: service_healthy
@@ -275,6 +283,10 @@ services:
       - HADOOP_ROLE=datanode
     volumes:
       - hadoop_datanode3:/hadoopdata/datanode
+    ports:
+      - "9874:9864"  # DataNode HTTP port (avoiding 9870-9871 used by namenodes)
+      - "9876:9866"  # DataNode data transfer port (avoiding 9875 used by namenode1)
+      - "9877:9867"  # DataNode IPC port
     depends_on:
       namenode1:
         condition: service_healthy

@@ -2,6 +2,7 @@ from pyarrow.fs import HadoopFileSystem
 import pyarrow.parquet as pq
 import pyarrow.csv as csv
 import pandas as pd
+import pyarrow as pa
 from typing import Literal
 import io
 
@@ -39,6 +40,26 @@ def upload_hdfs_file(local_file_path, hdfs_dest_path):
         with hdfs.open_output_stream(hdfs_dest_path) as hdfs_file:
             hdfs_file.write(local_file.read())
 
+def upload_pa_table(data, hdfs_dest_path):
+    # Connect to HDFS
+    hdfs = HadoopFileSystem.from_uri("hdfs://mycluster")
+    
+    # Convert to PyArrow Table if input is a pandas DataFrame
+    if isinstance(data, pd.DataFrame):
+        table = pa.Table.from_pandas(data)
+    elif isinstance(data, pa.Table):
+        table = data
+    else:
+        raise TypeError("Data must be either a pandas DataFrame or a PyArrow Table")
+    
+    # Force .parquet extension if not already
+    if not hdfs_dest_path.endswith('.parquet'):
+        hdfs_dest_path = hdfs_dest_path.rsplit('.', 1)[0] + '.parquet'
+
+    # Write the table to HDFS as Parquet
+    with hdfs.open_output_stream(hdfs_dest_path) as f:
+        pq.write_table(table, f)
+
 def read_hdfs_file(hdfs_file_path, file_type:Literal['pq', 'csv', 'xlsx'], output_format:Literal['pandas_df', 'arrow_table']):
     hdfs = HadoopFileSystem.from_uri("hdfs://mycluster")
     if file_type == 'pq':
@@ -54,6 +75,6 @@ def read_hdfs_file(hdfs_file_path, file_type:Literal['pq', 'csv', 'xlsx'], outpu
         elif (file_type == 'xlsx' and output_format == 'pandas_df'):
             return pd.read_excel(io.BytesIO(content))
         elif (file_type == 'csv' and output_format == 'arrow_table'):
-            return csv.read_csv(hdfs_file)
+            return csv.read_csv(io.BytesIO(content))
         else:
             print(f"ERROR! Format {output_format} does not support reading file type {file_type}! Please choose a different file type/format combination!")
