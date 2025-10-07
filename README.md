@@ -3,7 +3,7 @@ This project contains code for an on prem, mostly automated solution for big dat
 
 ### config.py File and it's Contents
 The config file contains the db information in order to connect to the database, here are the following parameters that should be specified:
-- DATABASE = os.getenv('POSTGRES_DB', 'awsmockdb')
+- DATABASE = os.getenv('POSTGRES_DB', 'neuronmockdb')
 - HOST = os.getenv('POSTGRES_HOST', 'db')
 - PORT = os.getenv('POSTGRES_PORT', '5432')
 - USER = os.getenv('POSTGRES_USER', 'admin')
@@ -31,5 +31,5 @@ Upon running the default dockercompose file provided with this project, you will
 
 ### Terminal Helper Commands
 To get started with terminal commands, you can use one of two terminal helper commands:
-- '?' Command: This command will show you every avaliable command or sub command that can follow previous commands. For example aws ? should display all sub commands avaliable after the 'aws' command.
+- '?' Command: This command will show you every avaliable command or sub command that can follow previous commands. For example neuronXY ? should display all sub commands avaliable after the 'neuronXY' command.
 - '-help' Command: If you aren't sure what a command does, simply type the command and follow it with the '-help' tag. It will provide a detailed lineage of each command and how following commands will interact with perceeding ones. For example you can type 'aws -del user -help' to find out what each command in the 'aws -del user' command block will do
