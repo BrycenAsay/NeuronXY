@@ -1,7 +1,7 @@
 # NeuronXY Project
 This project contains code for an on prem, mostly automated solution for big data processing and data lakes/warehouses (please note the functionality of the services varies as development is still very much happening). It started as a mockup for AWS services but now is evolving to use open source solutions such as Docker and Hadoop to actually provide not just a simulated AWS environment but actual big data solutions
 
-# 🔒 Security Note
+### 🔒 Security Note
 NeuronXY uses default passwords in docker-compose for ease of local setup. These services run on localhost only and are intended for learning and experimentation. If you expose these services beyond your local machine, change the default passwords immediately.
 
 ### config.py File and it's Contents
