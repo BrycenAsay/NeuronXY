@@ -154,7 +154,7 @@ def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, no
         type = file_name.split('.')[1])
     if not non_replica or not bypass_input:
         override_defs = prompt_validation('Override default settings? (Y/N): ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False}, bp_input=[bypass_input, 'N'])
-        if override_defs == 'Y':
+        if override_defs:
             new_file = override_defaults(new_file)
     for attribute in new_file.properties:
         cols.append(attribute) #columns to update in DB, matched with file attributes
