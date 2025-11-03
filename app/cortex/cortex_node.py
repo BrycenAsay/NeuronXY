@@ -193,12 +193,12 @@ def update_file(_username, _node, _file_name, _perm_tag):
     # give user updatable properties and prompt for values to change until user types 'DONE'
     existing_file = override_defaults(existing_file)
 
-    #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update file values
-    vals = postgres_format([existing_file.get_node_properties(property) for property in existing_file.properties])
+    #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update file values   
+    vals = postgres_format([existing_file.get_file_properties(property) for property in existing_file.properties])
     cols = existing_file.properties
     for i in range(len(vals)):
         create_db_connection(row_action('', ['user_id', 'node_id', 'file_id'], usr_buk_obj_ids, f'UPDATE cortex_node SET {cols[i]} = {vals[i]}', frm_keywrd=''))
-        create_log_entry(_username, 'PUT', 'updateFile', 'cortex', 'node', _node, 'file', existing_file)
+    create_log_entry(_username, 'PUT', 'updateFile', 'cortex', 'node', _node, 'file', existing_file)
 
 def upload_file(_username, node, file_name, perm_tag, replicate_process=False, pa_upload=False, pa_table=None, bp_input=False, synapse_run=False):
     """Uploads file from externalFiles folder into an cortex node and records details in the DB"""
