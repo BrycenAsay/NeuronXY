@@ -3,7 +3,7 @@ import hashlib
 import shutil
 import getpass
 import os
-from app_logging import create_log_entry
+from .app_logging import create_log_entry
 from sqlalchemy import text
 from helper_scripts.sql_helper import create_row, update_row, check_if_user_exists, create_db_connection, name_to_id, row_action
 
@@ -15,8 +15,7 @@ def persist_creds(_username, _password):
     _password: password to insert for the new user"""
     username_exists = create_db_connection(check_if_user_exists('user_credentials', _username), return_result=True)
     if 1 in username_exists: # if result returned from select statement, username exists and a different one must be selected
-        print(f'ERROR! Username {_username} is already taken, please choose a different username!')
-        return False
+        raise ValueError(f'ERROR! Username {_username} is already taken, please choose a different username!')
     else: # run 'create row' SQL function to insert details into user_credentials table
         create_db_connection(create_row('user_credentials', ['username', 'password'], [f"'{_username}'", f"'{_password}'"]))
         create_log_entry(_username, 'POST', 'userAdd', object_name='user')
