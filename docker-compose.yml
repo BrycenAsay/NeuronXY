@@ -57,7 +57,29 @@ services:
       - namenode1
     networks:
       - default_network
-
+  api:  # ← NEW SERVICE
+    build:
+      context: ./app
+      dockerfile: Dockerfile  # Same Dockerfile as CLI (or make Dockerfile.api)
+    ports:
+      - "8000:8000"  # Expose port 8000 to your host machine
+    command: ["uvicorn", "API.api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=p1934rubvf-1938rfv-98sdyfgpeowquhfgvp[312908yut
+      - POSTGRES_DB=neuronmockdb
+    depends_on:
+      - db
+      - namenode1
+    networks:
+      - default_network
+    volumes:
+      - app_data:/app/NeuronXY
+      - pandas_funcs:/app/synapse/pandas_funcs
+      - duckdb_scripts:/app/synapse/duckdb_scripts
+    working_dir: /app
   cron-job:
     build:
       context: ./cron
