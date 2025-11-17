@@ -6,3 +6,7 @@ pyarrow
 pandas
 duckdb
 pymongo
+fastapi
+pydantic
+PyJWT
+uvicorn[standard]
