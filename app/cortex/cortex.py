@@ -1,90 +1,37 @@
-import json
-import shutil
-import logging
-import os
 from helper_scripts.sql_helper import create_row, create_db_connection, row_action, update_row_dos_id, name_to_id, postgres_format
-from helper_scripts.hadoop_helper import create_hdfs_direcotry, delete_hdfs_direcotry, read_hdfs_file
+from helper_scripts.hadoop_helper import create_hdfs_directory, delete_hdfs_directory, read_hdfs_file
 from helper_scripts.utils import prompt_validation, init_object
 from sqlalchemy import text
 from UI.app_logging import create_log_entry
+import logging
+import traceback
 
 class cortex_node:
     """cortex node object, attributes for a node currently include:
     
     properties: a list of properties for this object
     name: the name for the node
-    block_public_access: dictates wether the node is or is not publicly accessible
-    acl_enabled: dicates wether or not access control lists are endabled
-    node_policy: dictates permissions for specific cortex node actions
-    node_type: wether node is general purpose or directory
-    node_versioning: dictates wether or not file versions are kept track of
     tags: list of tags associated with the node
-    encrypt_method: dictates the encryption method for files within the node
-    node_key: a local node key that that lowers calls to AWS KMS
-    file_lock: prevents files from being deleted or overwritten when specified
     """
     def __init__(self,
-                 properties = ['name', 'nrn', 'node_type', 'node_versioning', 'acl_enabled', 
-                               'block_public_access', 'node_key', 'file_lock', 'encrypt_method',
-                               'node_policy', 'tags', 'file_replication', 'replication_node_id'],
+                 properties = ['name', 'nrn', 'tags'],
                  name = '',
                  nrn = '',
-                 node_type = 'gp', 
-                 node_versioning:bool=False, 
-                 acl_enabled:bool=False, 
-                 block_public_access:bool=True, 
-                 node_key:bool=True,
-                 file_lock:bool=False,
-                 encrypt_method='SSE-CORTEX', 
-                 node_policy=json.dumps({}), 
-                 tags=[],
-                 file_replication:bool=False,
-                 replication_node_id='Null'):
+                 tags=[]):
         self.properties = properties
         self.name = name
         self.nrn = nrn
-        self.block_public_access = block_public_access
-        self.acl_enabled = acl_enabled
-        self.node_policy = node_policy
-        self.node_type = node_type
-        self.node_versioning = node_versioning
         self.tags = tags
-        self.encrypt_method = encrypt_method
-        self.node_key = node_key
-        self.file_lock = file_lock
-        self.file_replication = file_replication
-        self.replication_node_id = replication_node_id
 
     def set_node_properties(self, attr):
         """Allows a terminal user to set node properties by passing the attribute string as the attr argument"""
         if attr == 'name':
             self.name = prompt_validation('Please enter a name for this node between 3 to 63 characters> ', req_len_range=[3, 63])
-        if attr == 'block_public_access':
-            self.block_public_access = prompt_validation('Would you like to block public access? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
-        if attr == 'acl_enabled':
-            self.acl_enabled = prompt_validation('Would you like to enable ACLs? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
-        if attr == 'node_policy':
-            try:
-                self.node_policy = json.dumps(input('Please enter a node policy> '))
-            except:
-                self.node_policy = 'NOT A VALID JSON OBJECT'
-        if attr == 'node_type':
-            self.node_type = prompt_validation('Please enter a valid node type (gp or dir)> ', req_vals=['gp', 'dir'])
-        if attr == 'node_versioning':
-            self.node_versioning = prompt_validation('Would you like to enable node versioning? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
         if attr == 'tags':
             tags = input('Please enter tags you want associated with the node, seperated by commas> ').split(',')
             if '' in tags:
                 tags.remove('')
             self.tags = tags
-        if attr == 'encrypt_method':
-            self.encrypt_method = prompt_validation('Please enter a valid encryption method (SSE-CORTEX, SEE-KMS, DSSE-KMS)> ', req_vals=['SSE-CORTEX', 'SEE-KMS', 'DSSE-KMS'])
-        if attr == 'node_key':
-            self.node_key = prompt_validation('Would you like to create a node key? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
-        if attr == 'file_lock':
-            self.file_lock = prompt_validation('Would you like to enable file lock? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
-        if attr == 'file_replication':
-            self.file_replication = prompt_validation('Would you like to enable file replication? (Y/N)> ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False})
 
     def define_node_properties(self, attr_name, value):
         if hasattr(self, attr_name):  # Ensure the attribute exists
@@ -124,18 +71,13 @@ def update_node(_user_id, _node_id):
     updateable_properties = [x for x in existing_node.properties]
     updateable_properties.remove('name')
     updateable_properties.remove('nrn')
-    updateable_properties.remove('replication_node_id')
     print(f'Avaliable changeable properties: {','.join(updateable_properties)}\n')
     def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
     while def_pv_to_change != 'DONE':
-        if def_pv_to_change == 'file_replication' and existing_node.file_replication:
-            print('\nWARNING! Node replication is already enabled on this node! If you wish to update the target node for file replication, please disable and renable file replication. You can then change the file replication target node!\n')
         if def_pv_to_change in updateable_properties:
             existing_node.set_node_properties(def_pv_to_change)
         print(f'Avaliable updateable properties: {','.join(updateable_properties)}\n')
         def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
-    if (existing_node.replication_node_id is None or existing_node.replication_node_id is not None and not existing_node.file_replication):
-        existing_node = node_replication(create_db_connection(text(f'SELECT username FROM user_credentials WHERE user_id = {_user_id}'), return_result=True)[0], existing_node, None)
 
     #ensure values are in Postgres friendly formating based on data type before being written to the SQL query, then create and run update statement to update node values
     vals = postgres_format([existing_node.get_node_properties(property) for property in existing_node.properties])
@@ -145,9 +87,9 @@ def update_node(_user_id, _node_id):
 
 def create_cortex_directory(_username, node):
     """Creates an cortex directory if it does not yet exist and node subdirectory within that directory for the logged in user"""
-    cortex_path = f"{_username}/cortex/{node.name}"
+    cortex_path = f"cortex/{_username}/{node.name}"
     try:
-        create_hdfs_direcotry(cortex_path)
+        create_hdfs_directory(cortex_path, _username)
     except Exception as e:
         print(f'{e}')
 
@@ -171,7 +113,6 @@ def override_defaults(node):
     """Enters loop to override default values upon object instantiation"""
     changeable_properties = [x for x in node.properties]
     changeable_properties.remove('name')
-    changeable_properties.remove('replication_node_id')
     print(f'Avaliable changeable properties: {','.join(changeable_properties)}\n')
     def_pv_to_change = input('Please enter a default property/value to change. If a valid setting not specified, you will be returned to this prompt. Enter DONE to confirm settings> ')
     while def_pv_to_change != 'DONE': # if overriding default settings, continue to ask about setting changes until user types 'DONE'
@@ -197,8 +138,7 @@ def mk_node(_username, node_name, transfer_func, bypass_input=False, **kwargs):
             new_node = override_defaults(new_node)
     else:
         new_node = init_object(cortex_node(), **kwargs)
-    new_node.define_node_properties('nrn', f'nrn:aws:cortex:::{new_node.name}')
-    new_node = node_replication(_username, new_node, None)
+    new_node.define_node_properties('nrn', f'nrn:neuron:cortex:::{new_node.name}')
     upload_properties_to_db(new_node, _username)
     create_cortex_directory(_username, new_node)
     create_log_entry(_username, 'POST', 'cortexNodeAdd', 'cortex', None, None, 'node', new_node)
@@ -209,9 +149,10 @@ def del_node_ap(_username, node_name, transfer_func):
         create_log_entry(_username, 'DELETE', 'nodeDelete', 'cortex', None, None, 'node', sel_node(_username, node_name, None, override_transfer=True))
         remove_node_db_dir(create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)[0]
                             ,create_db_connection(text(f"SELECT node_id FROM cortex WHERE name = '{node_name}'"), return_result=True)[0])
-        delete_hdfs_direcotry(f"{_username}/cortex/{node_name}")
-    except:
-        print(f'A VALID BUCKET NAME FOR THIS USER MUST BE SPECIFIED! BUCKET DELETE UNSUCCESSFUL!')
+        delete_hdfs_directory(f"/cortex/{_username}/{node_name}", _username)
+    except Exception as e:
+        logging.error(e)
+        traceback.print_exc()
 
 def updt_node_ap(_username, node_name, transfer_func):
     """User access point to run function 'update_node' which updates settings for a specified node"""
@@ -239,99 +180,10 @@ def nodeSettings(_username, node_name, transfer_func):
     for property in dummy_node.properties:
         print(f'{property}')
 
-def node_replication(_username, node, transfer_func):
-    """If node replication is enabled, we must ensure that a valid replication node is selected, and that there is such a node to select"""
-    if node.file_replication and node.replication_node_id not in [None, 'Null']:
-        pass
-    elif node.file_replication:
-        if create_db_connection(row_action('cortex', ['user_id', 'name', 'name'], [name_to_id('user_credentials', 'user_id', 'username', _username), name_to_id('cortex', 'replication_node_id', 'name', name_to_id('cortex', 'node_id', 'name', node.name), 
-                                                                                                                                                            reversed=True, one_result=False), f"'{node.name}'"], 
-                                                                                                                                                            'SELECT COUNT(*)', not_eq=[False, True, True], group_state='GROUP BY user_id'), return_result=True) in [[0], []]:
-            print('ERROR! You must have more than one node to enable file replication on this node! This node will either be created with file replication disabled, or will not have this option updated!')
-            node.define_node_properties('file_replication', False)
-            node.define_node_properties('replication_node_id', 'Null')
-        else:
-            ls_node_limit = [node.name] +  name_to_id('cortex', 'replication_node_id', 'name', name_to_id('cortex', 'node_id', 'name', node.name), reversed=True, one_result=False)
-            ls_node(_username, node.name, transfer_func, ls_node_limit)
-            rep_targ_buck = input('Please enter a target node for file replication into this node. Please note that this prompt will not quit until a valid node_name is specified: ')
-            while (rep_targ_buck not in [node_name for node_name in create_db_connection(row_action('cortex', ['user_id', 'name', 'node_id'], [name_to_id('user_credentials', 'user_id', 'username', _username), 
-            f"'{node.name}'", name_to_id('cortex', 'replication_node_id', 'name', node.name)], action_type='SELECT name', not_eq=[False, True, True]), return_result=True)] or rep_targ_buck in ls_node_limit):
-                ls_node(_username, node.name, transfer_func, ls_node_limit)
-                rep_targ_buck = input('Please enter a target node for file replication. Please note that this prompt will not quit until a valid node_name is specified: ')
-            node.define_node_properties('replication_node_id', create_db_connection(row_action('cortex', ['user_id', 'name'], [name_to_id('user_credentials', 'user_id', 'username', _username), 
-                                                                                                                f"'{rep_targ_buck}'"], 'SELECT node_id'), return_result=True)[0])
-    else:
-        node.define_node_properties('file_replication', False)
-        node.define_node_properties('replication_node_id', 'Null')
-    return node
-
-def lifecycle_rules(_username, node_name, transfer_func):
-    usr_id = str(name_to_id('user_credentials', 'user_id', 'username', _username))
-    buk_id = str(name_to_id('cortex', 'node_id', 'name', node_name))
-    if buk_id == '999999999':
-        print(f'ERROR! Node {node_name} was not found for user {_username}! Please ensure you sepcify a valid node to add a lifecycle rule to!')
-        return
-    transition_to = []
-    days_till_transition = []
-    storage_classes = ['standard-IA', 'intelligent-tiering', 'one-zone-IA', 'glacier-instant-retrieval', 'glacier-flexible-retrieval', 'glacier-deep-archive']
-    create_add_to_rule = input('Would you like to create a lifecycle rule or add an additional transition rule? (Y/N): ')
-    while create_add_to_rule != 'N':
-        print(', '.join(storage_classes))
-        trans_class = input('Please enter a class to transition to, please note this will not exit until a class is specified: ')
-        while trans_class not in storage_classes:
-            print(', '.join(storage_classes))
-            trans_class = input('Please enter a class to transition to, please note this will not exit until a class is specified: ')
-        if trans_class == 'one-zone-IA':
-            storage_classes = storage_classes[storage_classes.index('glacier-instant-retrieval') + 1:len(storage_classes)]
-        else:
-            storage_classes = storage_classes[storage_classes.index(trans_class) + 1:len(storage_classes)]
-        
-        if transition_to == [] and trans_class in ['standard-IA', 'one-zone-IA']:
-            user_prompt = 'Please enter number of days until the transition takes place, please note it must be 30 days or greater: '
-            min_days = 29
-        elif transition_to == [] and trans_class not in ['standard-IA', 'one-zone-IA']:
-            user_prompt = 'Please enter number of days until the transition takes place, please note it must 1 day or greater: '
-            min_days = 0
-        elif transition_to[-1] in ['standard-IA', 'one-zone-IA']:
-            user_prompt = f'Please enter number of days until the transition takes place, please note it must 30 days or greater than than the transition to {transition_to[-1]} which was {str(days_till_transition[-1])} days: '
-            min_days = days_till_transition[-1] + 29
-        else:
-            user_prompt = f'Please enter number of days until the transition takes place, please note it must 1 day or greater than than the transition to {transition_to[-1]} which was {str(days_till_transition[-1])} days: '
-            min_days = days_till_transition[-1]
-
-        days_till_trans = input(user_prompt)
-        try:
-            days_till_trans = int(days_till_trans)
-        except:
-            days_till_trans = -1
-        while days_till_trans <= min_days:
-            days_till_trans = input(user_prompt)
-            try:
-                days_till_trans = int(days_till_trans)
-            except:
-                days_till_trans = -1
-        
-        transition_to.append(trans_class)
-        days_till_transition.append(days_till_trans)
-        if 'glacier-deep-archive' in transition_to:
-            create_add_to_rule = 'N'
-        else:
-            create_add_to_rule = input('Would you like to create a lifecycle rule or add an additional transition rule? (Y/N): ')
-    db_lifecycle_rule_def(usr_id, buk_id, transition_to, days_till_transition)
-
-def db_lifecycle_rule_def(user_id, node_id, trans_to, dt_trans):
-    create_db_connection(create_row('lifecycle_rule', ['user_id', 'node_id', 'rule_enabled'], [user_id, node_id, 'True']))
-    generated_lfcyc_id = str(create_db_connection(row_action('lifecycle_rule', ['user_id', 'node_id'], [user_id, node_id], 'SELECT lifecycle_id'), return_result=True)[0])
-    create_db_connection(row_action('', ['user_id', 'node_id'], [user_id, node_id], f'UPDATE cortex SET lifecycle_id = {generated_lfcyc_id}', frm_keywrd=''))
-    trans_to = [f"'{x}'" for x in trans_to]
-    dt_trans = [str(x) for x in dt_trans]
-    for i in range(len(trans_to)):
-        create_db_connection(create_row('lifecycle_transition', ['lifecycle_id', 'transition_to', 'days_till_transition'], [generated_lfcyc_id, trans_to[i], dt_trans[i]]))
-
 def node_dump(user_id, node_id):
     """Dumps node contents into a list of pandas dictionaries (these dfs are NOT indexed)"""
     file_paths = create_db_connection(row_action('cortex_node', ['user_id', 'node_id'], 
-                                                [user_id, node_id], 'SELECT DISTINCT file_url, type'), multi_return=[True, 2])
+                                                [user_id, node_id], 'SELECT DISTINCT hdfs_path, file_extension'), multi_return=[True, 2])
     for i in range(len(file_paths[0])):
-        file_df = read_hdfs_file(file_paths[0][i], file_paths[1][i])
+        file_df = read_hdfs_file(file_paths[0][i], name_to_id('user_credentials', 'user_id', 'username', user_id, reversed=True), file_paths[1][i])
     return file_df
