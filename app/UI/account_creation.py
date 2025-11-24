@@ -3,7 +3,7 @@ import hashlib
 import shutil
 import getpass
 import os
-from .app_logging import create_log_entry
+from UI.app_logging import create_log_entry
 from sqlalchemy import text
 from helper_scripts.sql_helper import create_row, update_row, check_if_user_exists, create_db_connection, name_to_id, row_action
 
