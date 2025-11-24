@@ -34,7 +34,7 @@ def get_user_api(current_user: str = Depends(get_current_user)):
 
     except Exception as e:
         print(f"Error creating user: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create user")
+        raise HTTPException(status_code=500, detail="Failed to fetch user")
 
 @app.post("/neuronXY/users")
 def create_user_api(acct_details: apv.User):
