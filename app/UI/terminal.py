@@ -1,5 +1,5 @@
 from account_creation import create_creds, reset_password, neuronXY_login, delete_user
-from cortex.cortex import sel_node, mk_node, del_node_ap, updt_node_ap, ls_node, nodeSettings, lifecycle_rules
+from cortex.cortex import sel_node, mk_node, del_node_ap, updt_node_ap, ls_node, nodeSettings
 from cortex.cortex_node import upload_file, delete_file, update_file
 from synapse.synapse_qf import mk_synapse_qf
 import logging
@@ -26,7 +26,6 @@ class terminal:
                                'user': 'Used in combination with other commands to control users',
                                'create': 'Used as the create command',
                                'node': 'Used in combination with other commands to control cortex nodes, typically you would perceed this keyword with the name of an existing node',
-                               'lifecycle_rule': 'Used in combination with the -add and -updt commands to add and update lifecycle rules for nodes',
                                '--perm': 'Permenanet tag, used to override any backup processes (not generally recommended)',
                                '-add': 'Used to add properties to an file that by default does not get created with said properties',
                                'qf': 'Used in combination with other commands to control synapse queries/functions'},
@@ -102,7 +101,6 @@ class terminal:
                            '-mk': {'node': mk_node},
                            '-del': {'node': del_node_ap},
                            '-updt': {'node': updt_node_ap},
-                           '-add': {'lifecycle-rule': lifecycle_rules},
                            '-ls': {'node': ls_node},
                            'node_settings': nodeSettings}, param_list)
         elif self.terminal_type == 'cortex_node':
