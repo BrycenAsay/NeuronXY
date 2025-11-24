@@ -193,19 +193,15 @@ def fq_run(user_id, srv, host, object, synapse_qf):
         if srv == 'cortex':
             if synapse_qf.get_fq_properties('out_trig_type')[0] == 'POST':
                 if (synapse_qf.get_fq_properties('enabled')[0] is True and synapse_qf.get_fq_properties('in_srv_host')[0] == name_to_id('cortex', 'node_id', 'name', host.get_node_properties('name'))):
-                    print(host.get_node_properties('name'))
-                    print(synapse_qf.get_fq_properties('in_srv_host')[0])
-                    input()
                     if object is not None:
-                        raw_file = get_file(user_id, name_to_id('cortex', 'node_id', 'nrn', host.get_node_properties('nrn')), name_to_id('cortex_node', 'file_id', 'nrn', object.get_file_properties('nrn')), return_type(synapse_qf.get_fq_properties('src_file')[0].split('.')[1]), None)
+                        raw_file = get_file(user_id, name_to_id('cortex', 'node_id', 'nrn', host.get_node_properties('nrn')), name_to_id('cortex_node', 'file_id', 'hdfs_path', object.get_file_properties('hdfs_path')), return_type(synapse_qf.get_fq_properties('src_file')[0].split('.')[1]))
                     if synapse_qf.get_fq_properties('src_file')[0].split('.')[1] == 'py':
                         pro_file = process_df_using_file(raw_file, synapse_qf.get_fq_properties('src_file')[0])
                     elif synapse_qf.get_fq_properties('src_file')[0].split('.')[1] == 'sql':
                         pro_file = process_arw_using_file(raw_file, synapse_qf.get_fq_properties('src_file')[0])
-                        jimmy = sel_node(name_to_id('user_credentials', 'user_id', 'username', user_id, True), name_to_id('cortex', 'node_id', 'name', synapse_qf.get_fq_properties('out_srv_host')[0], reversed=True), None, override_transfer=True)
                     upload_file(name_to_id('user_credentials', 'user_id', 'username', user_id, True), 
                                 sel_node(name_to_id('user_credentials', 'user_id', 'username', user_id, True), name_to_id('cortex', 'node_id', 'name', synapse_qf.get_fq_properties('out_srv_host')[0], reversed=True), None, override_transfer=True), 
-                                getattr(object, 'nrn').split('/')[1], None, pa_upload=True, pa_table=pro_file, bp_input=True, synapse_run=True)
+                                getattr(object, 'hdfs_path').split('/')[-1], pa_upload=True, pa_table=pro_file, bp_input=True, synapse_run=True)
     except Exception as e:
         logging.error(e, exc_info=True)
 
