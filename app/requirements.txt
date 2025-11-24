@@ -9,4 +9,5 @@ pymongo
 fastapi
 pydantic
 PyJWT
+httpx
 uvicorn[standard]
