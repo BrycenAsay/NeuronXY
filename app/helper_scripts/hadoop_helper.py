@@ -7,7 +7,7 @@ import httpx
 import logging
 import io
 
-def chown(path: str, owner: str, group: str = 'Admin'):
+def chown(path: str, owner: str, group: str = 'admin'):
     """Change ownership."""
     namenodes = ["http://namenode1:9870", "http://namenode2:9870"]
     
