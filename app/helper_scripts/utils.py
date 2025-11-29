@@ -66,7 +66,7 @@ def json_serial(obj):
     else:
         return obj
 
-def create_object_json(raw_obj_instance):
+def create_object_json(raw_obj_instance, py_dict=False):
     if raw_obj_instance == None:
         return None
     else:
@@ -74,4 +74,7 @@ def create_object_json(raw_obj_instance):
         keys = raw_obj_instance.properties
         for key in keys:
             dict_obj[key] = json_serial(getattr(raw_obj_instance, key))
-    return json.dumps(dict_obj)
+    if py_dict:
+        return dict_obj
+    else:
+        return json.dumps(dict_obj)
