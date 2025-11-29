@@ -46,10 +46,13 @@ class cortex_node:
         else:
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr_name}'")
 
-def upload_properties_to_db(node, _username):
+def upload_properties_to_db(node, _username, user_id=None):
     """Uploads node properties to the DB"""
     cols = ['user_id'] + node.properties
-    prepro_vals = create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)
+    if user_id is None:
+        prepro_vals = create_db_connection(text(f"SELECT user_id FROM user_credentials WHERE username = '{_username}'"), return_result=True)
+    else:
+        prepro_vals = [user_id]
     vals = []
     for property in node.properties:
         prepro_vals.append(node.get_node_properties(property))
@@ -139,9 +142,13 @@ def mk_node(_username, node_name, transfer_func, bypass_input=False, **kwargs):
     else:
         new_node = init_object(cortex_node(), **kwargs)
     new_node.define_node_properties('nrn', f'nrn:neuron:cortex:::{new_node.name}')
-    upload_properties_to_db(new_node, _username)
-    create_cortex_directory(_username, new_node)
-    create_log_entry(_username, 'POST', 'cortexNodeAdd', 'cortex', None, None, 'node', new_node)
+    persist_node(_username, new_node)
+
+def persist_node(_username, node, user_id=None):
+    """Creates the cortex node directory in HDFS, as well as uploads metadata to DB and creates a log entry"""
+    upload_properties_to_db(node, _username, user_id)
+    create_cortex_directory(_username, node)
+    create_log_entry(_username, 'POST', 'cortexNodeAdd', 'cortex', None, None, 'node', node)
 
 def del_node_ap(_username, node_name, transfer_func):
     """User access point to run function 'remove_node_db_dir' which removes a specified node and node sub directory"""
