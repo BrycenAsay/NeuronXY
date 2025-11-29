@@ -13,12 +13,9 @@ def persist_creds(_username, _password):
     Parameters:
     _username: username to insert for the new user
     _password: password to insert for the new user"""
-    username_exists = create_db_connection(check_if_user_exists('user_credentials', _username), return_result=True)
-    if 1 in username_exists: # if result returned from select statement, username exists and a different one must be selected
-        raise ValueError(f'ERROR! Username {_username} is already taken, please choose a different username!')
-    else: # run 'create row' SQL function to insert details into user_credentials table
-        create_db_connection(create_row('user_credentials', ['username', 'password'], [f"'{_username}'", f"'{_password}'"]))
-        create_log_entry(_username, 'POST', 'userAdd', object_name='user')
+    # run 'create row' SQL function to insert details into user_credentials table
+    create_db_connection(create_row('user_credentials', ['username', 'password'], [f"'{_username}'", f"'{_password}'"]))
+    create_log_entry(_username, 'POST', 'userAdd', object_name='user')
 
 def update_creds(_username, _password):
     """Updates password for a given user
@@ -126,6 +123,9 @@ def create_creds(unused_param):
     while len(password) < 16:
         print('YOUR PASSWORD MUST BE AT LEAST 16 CHARACTERS LONG!')
         password = getpass.getpass('Please enter a password: ')
+    username_exists = create_db_connection(check_if_user_exists('user_credentials', username), return_result=True)
+    if 1 in username_exists: # if result returned from select statement, username exists and a different one must be selected
+        raise ValueError(f'ERROR! Username {username} is already taken, please choose a different username!')
     password = encrypt_password(salt_pass(username, password))
     persist_creds(username, password) # after getting password and username, persist credentials in the DB
 
