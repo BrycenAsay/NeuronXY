@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
-from . import account_api_wrap as apw
-from . import account_api_valid as apv
+from API import api_wrap as apw
+from API import api_valid as apv
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError, DecodeError
@@ -26,6 +26,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except InvalidTokenError:
         # Catch-all for any other JWT errors
         raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+"""User account related endpoints"""
 
 @app.get("/neuronXY/users")
 def get_user_api(current_user: str = Depends(get_current_user)):
@@ -98,3 +100,74 @@ async def update_password(user_id: int, creds: apv.newPassword, current_user: st
     except Exception as e:
         print(f"Error deleting user: {e}")
         raise HTTPException(status_code=500, detail="Failed to update the user's password")
+    
+"""Cortex node level related endpoints"""
+
+@app.get("/neuronXY/users/{user_id}/cortex/nodes")
+def get_nodes_api(user_id: int, current_user: str = Depends(get_current_user)):
+    try:
+        return apw.list_nodes(user_id, current_user)
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list nodes for user")
+
+@app.get("/neuronXY/users/{user_id}/cortex/node")
+def get_node_api(user_id: int, node_name: apv.cortexNode, current_user: str = Depends(get_current_user)):
+    try:
+        nn_prepro = node_name.model_validate(node_name)
+        nn_postpro = nn_prepro.model_dump()
+        return apw.get_node(current_user, user_id, nn_postpro)
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch cortex node")
+    
+@app.post("/neuronXY/users/{user_id}/cortex/node")
+def create_node_api(user_id: int, node_name: apv.cortexNode, current_user: str = Depends(get_current_user)):
+    try:
+        nn_prepro = node_name.model_validate(node_name)
+        nn_postpro = nn_prepro.model_dump()
+        apw.mk_node(current_user, user_id, nn_postpro)
+
+    except ValueError as e:
+        error_msg = str(e).lower()
+
+        if 'node name is already in use' in error_msg:
+            raise HTTPException(status_code=409, detail=str(e))
+        else:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create cortex node")
+    
+@app.put("/neuronXY/users/{user_id}/cortex/node/{node_id}")
+def update_node_api(user_id: int, node_id: int, updates: apv.updateNodeProperties, current_user: str = Depends(get_current_user)):
+    try:
+        nn_prepro = updates.model_validate(updates)
+        nn_postpro = nn_prepro.model_dump()
+        apw.update_node(user_id, current_user, node_id, nn_postpro)
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to update node")
+    
+@app.delete("/neuronXY/users/{user_id}/cortex/node/{node_id}")
+def delete_node_api(user_id: int, node_id: int, current_user: str = Depends(get_current_user)):
+    try:
+        apw.delete_node(user_id, current_user, node_id)
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to update node")
