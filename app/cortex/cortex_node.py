@@ -22,7 +22,8 @@ class cortex_file:
     tags: list of tags associated with the node
     """
     def __init__(self,
-                properties=['hdfs_path', 'owner', 'creation_date', 'last_modified', 'size', 'file_extension', 'tags'],
+                properties=['name', 'hdfs_path', 'owner', 'creation_date', 'last_modified', 'size', 'file_extension', 'tags'],
+                name='',
                 hdfs_path='', 
                 owner='',
                 creation_date='',
@@ -31,7 +32,7 @@ class cortex_file:
                 file_extension='',
                 tags=''):
         self.properties = properties
-
+        self.name = name
         self.hdfs_path = hdfs_path
         self.owner = owner
         self.creation_date = creation_date
@@ -93,6 +94,7 @@ def persist_file(_node, username, file_name, loacl_file_path, hdfs_file_path, no
         override_defs = prompt_validation('Override default settings? (Y/N): ', req_vals=['Y', 'N'], bool_eval={'Y': True, 'N': False}, bp_input=[bypass_input, 'N'])
         if override_defs:
             new_file = override_defaults(new_file)
+    new_file.define_file_properties('name', file_name)
     for attribute in new_file.properties:
         cols.append(attribute) #columns to update in DB, matched with file attributes
         prepro_vals.append(new_file.get_file_properties(attribute)) #values to uploaded, pre postgres friendly translation
