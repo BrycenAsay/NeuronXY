@@ -69,3 +69,7 @@ class cortexNode(BaseModel):
     
 class updateNodeProperties(BaseModel):
     tags: Optional[list[str]] = None
+
+class cortexFile(BaseModel):
+    name: str
+    tags: Optional[list[str]] = None
