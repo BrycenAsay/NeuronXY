@@ -1,5 +1,6 @@
 from UI.account_creation import encrypt_password, salt_pass, persist_creds, create_log_entry, update_creds, check_if_user_exists
 from cortex.cortex import cortex_node, persist_node, del_node_ap
+from cortex.cortex_node import cortex_file
 from helper_scripts.sql_helper import create_db_connection, row_action, text, name_to_id, postgres_format
 from helper_scripts.utils import create_object_json
 import jwt
@@ -126,3 +127,18 @@ def delete_node(user_id, _username, node_id):
     if (name_to_id('user_credentials', 'user_id', 'username', _username) != user_id or name_to_id('cortex', 'user_id', 'node_id', node_id) != user_id):
         raise ValueError(f'Bearer token provided does not authenticate this request for user id {user_id}/node id {node_id}. You may use the get method for the NeuronXY/users endpoint to find the correctly correlating user id')
     del_node_ap(_username, node_name, None)
+
+"""API wrappers for cortex node object endpoints"""
+
+def get_node_file(_username, user_id, node_id, file_details):
+    """Accesses a file from HDFS and loads into pandas DF for Synapse (and other service) manipulation"""
+    try: #try to query database under username and node name combo and load into exiting_file instance
+        if name_to_id('user_credentials', 'user_id', 'username', _username) != user_id:
+            raise ValueError(f'Bearer token provided does not authenticate this request for user id {user_id}. You may use the get method for the NeuronXY/users endpoint to find the correctly correlating user id')
+        file_id = name_to_id('cortex_node', 'file_id', 'name', file_details['name'])
+        existing_file = cortex_file()
+        for attribute in existing_file.properties:
+            existing_file.define_file_properties(attribute, create_db_connection(text(f"SELECT {attribute} FROM cortex_node WHERE user_id = {user_id} AND node_id = {node_id} AND file_id = {file_id}"), return_result=True)[0])
+        return {'node_id': node_id, 'file_id': file_id, **create_object_json(existing_file, py_dict=True)}
+    except: # if no file values are returned by the query, then an error will be thrown and we can inform the user that specified file was not found for the logged in user under specified node directory
+        raise ValueError(f'File name {file_details['name']} not found in node {name_to_id('cortex', 'node_id', 'name', node_id, reversed=True)} for user {_username}!')
