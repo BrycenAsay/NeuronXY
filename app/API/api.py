@@ -171,3 +171,19 @@ def delete_node_api(user_id: int, node_id: int, current_user: str = Depends(get_
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to update node")
+    
+"""Cortex node file level endpoints"""
+
+@app.get("/neuronXY/users/{user_id}/cortex/node/{node_id}/file")
+def get_file_api(user_id: int, node_id: int, file_name: apv.cortexFile, current_user: str = Depends(get_current_user)):
+    try:
+        nf_prepro = file_name.model_validate(file_name)
+        nf_postpro = nf_prepro.model_dump()
+        return apw.get_node_file(current_user, user_id, node_id, nf_postpro)
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch cortex file")
