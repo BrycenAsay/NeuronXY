@@ -130,6 +130,13 @@ def delete_node(user_id, _username, node_id):
 
 """API wrappers for cortex node object endpoints"""
 
+def list_node_files(username, user_id, node_id):
+    """Lists all active files under a specific cortex node directory"""
+    if name_to_id('user_credentials', 'user_id', 'username', username) != user_id:
+        raise ValueError(f'Bearer token provided does not authenticate this request for user id {user_id}. You may use the get method for the NeuronXY/users endpoint to find the correctly correlating user id')
+    nn_list = [x for x in create_db_connection(text(f"SELECT name FROM cortex_node WHERE user_id = {user_id} AND node_id = {node_id}"), return_result=True)]
+    return {'files': nn_list}
+
 def get_node_file(_username, user_id, node_id, file_details):
     """Accesses a file from HDFS and loads into pandas DF for Synapse (and other service) manipulation"""
     try: #try to query database under username and node name combo and load into exiting_file instance
