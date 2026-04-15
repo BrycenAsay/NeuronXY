@@ -174,6 +174,18 @@ def delete_node_api(user_id: int, node_id: int, current_user: str = Depends(get_
     
 """Cortex node file level endpoints"""
 
+@app.get("/neuronXY/users/{user_id}/cortex/node/{node_id}/files")
+def get_files_api(user_id: int, node_id: int, current_user: str = Depends(get_current_user)):
+    try:
+        return apw.list_node_files(current_user, user_id, node_id)
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list cortex files")
+
 @app.get("/neuronXY/users/{user_id}/cortex/node/{node_id}/file")
 def get_file_api(user_id: int, node_id: int, file_name: apv.cortexFile, current_user: str = Depends(get_current_user)):
     try:
